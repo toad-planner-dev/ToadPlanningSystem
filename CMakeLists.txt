@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.17)
+project(TOStripsApproximation)
+
+set(CMAKE_CXX_STANDARD 14)
+
+add_executable(TOStripsApproximation main.cpp Model.cpp ProgressionNetwork.cpp intDataStructures/IntUtil.cpp intDataStructures/StringUtil.cpp)
