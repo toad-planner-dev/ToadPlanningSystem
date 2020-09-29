@@ -3,4 +3,4 @@ project(TOStripsApproximation)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(TOStripsApproximation main.cpp Model.cpp ProgressionNetwork.cpp intDataStructures/IntUtil.cpp intDataStructures/StringUtil.cpp)
+add_executable(TOStripsApproximation main.cpp Model.cpp ProgressionNetwork.cpp intDataStructures/IntUtil.cpp intDataStructures/StringUtil.cpp translation/NotSelfEmbedding.cpp translation/NotSelfEmbedding.h translation/FiniteAutomaton.cpp translation/FiniteAutomaton.h translation/Pair.cpp translation/Pair.h)
