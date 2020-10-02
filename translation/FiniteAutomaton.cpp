@@ -25,11 +25,17 @@ void FiniteAutomaton::print(string *pVector, int start, int final) {
         Pair *p = it.first;
         set<int> *labels = it.second;
         cout << "    n" << p->from << " -> n" << p->to << " [label=\"";
+        bool first = true;
         for (int l : *labels) {
-            if (l == -1) {
-                cout << "Epsilon" << " ";
+            if (first){
+                first = false;
             } else {
-                cout << pVector[l] << " OR ";
+                cout << " OR ";
+            }
+            if (l == -1) {
+                cout << "Epsilon";
+            } else {
+                cout << pVector[l];
             }
         }
         cout << "\"];" << endl;

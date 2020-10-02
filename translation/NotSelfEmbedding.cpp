@@ -18,26 +18,6 @@ void NotSelfEmbedding::addRule(vector<int> *r) {
     tempRules.push_back(r2);
 }
 
-void NotSelfEmbedding::printRule(grRule *rule) {
-    cout << "rule " << rule->left << " -> ";
-    for (int i = 0; i < rule->rLength; i++) {
-        if (i > 0) {
-            cout << ", ";
-        }
-        cout << rule->right[i];
-    }
-    if (rule->isRightGenerating || rule->isLeftGenerating) {
-        if (rule->isRightGenerating && rule->isLeftGenerating) {
-            cout << " (RightGen, LeftGen)";
-        } else if (rule->isRightGenerating) {
-            cout << " (RightGen)";
-        } else if (rule->isLeftGenerating) {
-            cout << " (LeftGen)";
-        }
-    }
-    cout << endl;
-}
-
 void NotSelfEmbedding::makeFA(int q0, vector<int> *alpha, int q1) {
     if (alpha->size() == 1) {
         makeFA(q0, alpha->at(0), q1);
@@ -151,7 +131,7 @@ void NotSelfEmbedding::sortRules() {
     while (swapped) {
         swapped = false;
         for (int i = 0; i < n - 1; ++i) {
-            if (comp(rules[i], rules[i + 1]) > 0) {
+            if (compareRules(rules[i], rules[i + 1]) > 0) {
                 auto x = rules[i];
                 rules[i] = rules[i + 1];
                 rules[i + 1] = x;
@@ -198,7 +178,7 @@ void NotSelfEmbedding::analyseRules() {
 
     // check recursion structure of single rules
     for (int i = 0; i < numRules; i++) {
-        this->determineRec(rules[i]);
+        this->determineRuleRecursion(rules[i]);
     }
 
     // check recursion of Ni sets
@@ -260,7 +240,7 @@ void NotSelfEmbedding::analyseRules() {
     qB = new int[maxRightHandside];
 }
 
-int NotSelfEmbedding::comp(grRule *a, grRule *b) {
+int NotSelfEmbedding::compareRules(grRule *a, grRule *b) {
     if (a->left != b->left)
         return a->left - b->left;
     int smaller = std::min(a->rLength, b->rLength);
@@ -272,7 +252,7 @@ int NotSelfEmbedding::comp(grRule *a, grRule *b) {
     return 0;
 }
 
-void NotSelfEmbedding::determineRec(grRule *r) {
+void NotSelfEmbedding::determineRuleRecursion(grRule *r) {
     int Ni = this->SymToNi[r->left];
     if (Ni < 0) { // non-recursive
         return;
@@ -291,3 +271,22 @@ void NotSelfEmbedding::determineRec(grRule *r) {
     }
 }
 
+void NotSelfEmbedding::printRule(grRule *rule) {
+    cout << "rule " << rule->left << " -> ";
+    for (int i = 0; i < rule->rLength; i++) {
+        if (i > 0) {
+            cout << ", ";
+        }
+        cout << rule->right[i];
+    }
+    if (rule->isRightGenerating || rule->isLeftGenerating) {
+        if (rule->isRightGenerating && rule->isLeftGenerating) {
+            cout << " (RightGen, LeftGen)";
+        } else if (rule->isRightGenerating) {
+            cout << " (RightGen)";
+        } else if (rule->isLeftGenerating) {
+            cout << " (LeftGen)";
+        }
+    }
+    cout << endl;
+}
