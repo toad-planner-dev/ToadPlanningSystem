@@ -19,7 +19,7 @@ void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
     labels->insert(alpha);
 }
 
-void FiniteAutomaton::print(std::vector<string> *names) {
+void FiniteAutomaton::print(string *pVector, int start, int final) {
     cout << "digraph G {" << endl;
     for (auto &it: fda) {
         Pair *p = it.first;
@@ -29,7 +29,7 @@ void FiniteAutomaton::print(std::vector<string> *names) {
             if (l == -1) {
                 cout << "Epsilon" << " ";
             } else {
-                cout << names->at(l) << " ";
+                cout << pVector[l] << " OR ";
             }
         }
         cout << "\"];" << endl;
