@@ -20,36 +20,43 @@ void ModelWriter::writeAction(int action, int addP, int addAE, int addDE) {
         int prec = m->precLists[action][i];
         cout << "      (" << su.cleanStr(m->factStrs[prec]) << ")" << endl;
     }
-    cout << "      (s" << addP << "))" << endl;
+    cout << "      (dfa s" << addP << "))" << endl;
     cout << "    :effect (and" << endl;
     for (int i = 0; i < m->numAdds[action]; i++) {
         int add = m->addLists[action][i];
         cout << "      (" << su.cleanStr(m->factStrs[add]) << ")" << endl;
     }
-    cout << "      (s" << addAE << ")" << endl;
+    cout << "      (dfa s" << addAE << ")" << endl;
     for (int i = 0; i < m->numDels[action]; i++) {
         int del = m->delLists[action][i];
         cout << "      (not (" << su.cleanStr(m->factStrs[del]) << "))" << endl;
     }
-    cout << "      (not (s" << addDE << ")))" << endl;
+    cout << "      (not (dfa s" << addDE << ")))" << endl;
     cout << "   )" << endl << endl;
 }
 
+
 void ModelWriter::writePredDef(int maxState) {
+    cout << "  (:types dfastate)" << endl;
+    cout << "  (:constants ";
+    for (int i = 0; i < maxState; i++) {
+        cout << "s" << i << " ";
+        if ((i % 10) == 9) {
+            if (i < maxState - 1) {
+                cout << "- dfastate" << endl << "              ";
+            }
+        }
+    }
+    cout << " - dfastate" << endl;
+    cout << endl << "  )" << endl << endl;
+
     cout << "  (:predicates ";
     for (int i = 0; i < m->numStateBits; i++) {
         cout << "(" << su.cleanStr(m->factStrs[i]) << ")" << endl;
         cout << "               ";
     }
-    for (int i = 0; i < maxState; i++) {
-        cout << "(s" << i << ")";
-        if ((i % 10) == 9) {
-            if (i < maxState - 1) {
-                cout << endl << "               ";
-            }
-        }
-    }
-    cout << endl << "  )" << endl << endl;
+    cout << "(dfa ?s - dfastate)" << endl;
+    cout << "  )" << endl << endl;
 }
 
 void ModelWriter::writeProblem(int startState,int goalState) {
@@ -59,13 +66,13 @@ void ModelWriter::writeProblem(int startState,int goalState) {
     for (int i = 0; i < m->s0Size; i++) {
         cout << "      (" << su.cleanStr(m->factStrs[m->s0List[i]]) << ")" << endl;
     }
-    cout << "      (s" << startState << ")" << endl;
+    cout << "      (dfa s" << startState << ")" << endl;
     cout << "   )" << endl;
     cout << "   (:goal (and" << endl;
     for (int i = 0; i < m->gSize; i++) {
         cout << "      (" << su.cleanStr(m->factStrs[m->gList[i]]) << ")" << endl;
     }
-    cout << "      (s" << goalState << ")" << endl;
+    cout << "      (dfa s" << goalState << ")" << endl;
     cout << "   ))" << endl;
     cout << ")" << endl;
 }
@@ -74,9 +81,9 @@ int epsilonAcs = 0;
 void ModelWriter::writeEpsilonAction(int prec, int add, int del) {
     cout << "   (:action epsilon-" << epsilonAcs++ << endl;
     cout << "    :precondition (and" << endl;
-    cout << "      (s" << prec << "))" << endl;
+    cout << "      (dfa s" << prec << "))" << endl;
     cout << "    :effect (and" << endl;
-    cout << "      (s" << add << ")" << endl;
-    cout << "      (not (s" << del << ")))" << endl;
+    cout << "      (dfa s" << add << ")" << endl;
+    cout << "      (not (dfa s" << del << ")))" << endl;
     cout << "   )" << endl << endl;
 }
