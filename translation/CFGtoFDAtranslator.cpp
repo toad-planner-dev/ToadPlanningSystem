@@ -25,7 +25,7 @@ void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
     if (alpha->size() == 1) {
         makeFA(q0, alpha->at(0), q1);
     } else if (alpha->size() > 1) {
-        int q = this->stateID++;
+        int q = this->dfa->stateID++;
         int X = alpha->at(0);
         alpha->erase(alpha->begin());
         makeFA(q0, X, q);
@@ -35,9 +35,9 @@ void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
 
 void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
     if (A == Epsilon) {
-        fa.addRule(q0, A, q1);
+        dfa->addRule(q0, A, q1);
     } else if (isTerminalSym(A)) {
-        fa.addRule(q0, A, q1);
+        dfa->addRule(q0, A, q1);
     } else {
         if (SymToNi[A] >= 0) {
             // get partition containing A
@@ -46,7 +46,7 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
 
             // create new states
             for (int j = 0; j < NiSize[Nl]; j++) {
-                qB[j] = this->stateID++;
+                qB[j] = this->dfa->stateID++;
             }
 
             // left recursion
@@ -313,37 +313,4 @@ void CFGtoFDAtranslator::printRule(grRule *rule) {
         }
     }
     cout << endl;
-}
-
-void CFGtoFDAtranslator::writeInstance(progression::Model *htn, string dFile, string pFile) {
-
-    cout << "- preparing sets of extra precs/effs...";
-    unordered_map<int, set<pair<int, int>*>*> extraStuff;// = new unordered_map<int, set<int>*>;
-
-    for (auto &it: fa.fda) {
-        Pair *p = it.first;
-        set<int> *labels = it.second;
-        for (int l : *labels) {
-            if (extraStuff.find(l) == extraStuff.end()) {
-                set<pair<int, int>*>* s = new set<pair<int, int>*>;
-                extraStuff[l] = s;
-            }
-            extraStuff[l]->insert(new pair<int, int>(p->from, p->to));
-        }
-    }
-    cout << "done" << endl;
-
-    ModelWriter mw(htn, dFile, pFile);
-    mw.writePredDef(stateID);
-    for (int i = 0; i < htn->numActions; i++) {
-        if (extraStuff.find(i) == extraStuff.end())
-            continue; // unreachable via automaton
-        for (pair<int, int>* extra : *extraStuff[i]) {
-            mw.writeAction(i, extra->first, extra->second, extra->first);
-        }
-    }
-    for (pair<int, int>* extra : *extraStuff[-1]) {
-        mw.writeEpsilonAction(extra->first, extra->second, extra->first);
-    }
-    mw.writeProblem(0, 1);
 }

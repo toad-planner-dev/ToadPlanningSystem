@@ -19,6 +19,10 @@ public:
     void print(string *pVector, int i, int i1);
     unordered_map<Pair*, set<int>*, pairHash, pairComp> fda;
     //unordered_map<int, unordered_map<int, set<int>*>> fda2;
+
+    int stateID = 0; // next state id
+    int startState = -1;
+    int finalState = -1;
 };
 
 

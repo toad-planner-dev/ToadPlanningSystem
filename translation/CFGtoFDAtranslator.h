@@ -50,7 +50,6 @@ public:
     // const for epsilon symbol
     const int Epsilon = -1;
 
-    int stateID = 0; // next state id
 
     // grammar definition
     int numSymbols = 0;
@@ -71,7 +70,7 @@ public:
     int *NiRec;   // kind of recursion out of [recLeft, recRight, recSelf, recCycle]
 
     // resulting finite automaton
-    FiniteAutomaton fa;
+    FiniteAutomaton* dfa = new FiniteAutomaton;
 
     void addRule(std::vector<int> *pInt);
 
@@ -82,8 +81,6 @@ public:
     void makeFA(int q0, int alpha, int q1);
 
     void printRule(grRule *rule);
-
-    void writeInstance(progression::Model *pModel, string dFile, string pFile);
 };
 
 

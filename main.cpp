@@ -2,6 +2,7 @@
 #include "Model.h"
 #include "translation/FiniteAutomaton.h"
 #include "translation/CFGtoFDAtranslator.h"
+#include "ModelWriter.h"
 #include <vector>
 #include <cassert>
 
@@ -78,18 +79,21 @@ int main(int argc, char *argv[]) {
 
     cout << endl << "Creating DFA..." << endl;
     cout << "- Starting symbol: " << S << endl;
-    int startState = to2s->stateID++;
-    int finalState = to2s->stateID++;
-    to2s->makeFA(startState, S, finalState);
+
+    to2s->dfa->startState = to2s->dfa->stateID++;
+    to2s->dfa->finalState = to2s->dfa->stateID++;
+    to2s->makeFA(to2s->dfa->startState, S, to2s->dfa->finalState);
     cout << "- done!" << endl;
 
     cout << "creating output STRIPS model" << endl;
-    string dFile = "/home/dh/Schreibtisch/temp3/domain01.pddl";
-    string pFile ="/home/dh/Schreibtisch/temp3/problem01.pddl";
-    to2s->writeInstance(htn, dFile, pFile);
+    string dFile = "/home/dh/Schreibtisch/temp3/pddl-models/domain01.pddl";
+    string pFile ="/home/dh/Schreibtisch/temp3/pddl-models/problem01.pddl";
+
+    ModelWriter mw;
+    mw.write(htn, to2s->dfa, dFile, pFile);
     cout << "done!" << endl;
 
-    //to2s->fa.print(htn->taskNames, startState, finalState);
+    //to2s->dfa.print(htn->taskNames, startState, finalState);
 
     exit(0);
 /*
@@ -179,7 +183,7 @@ int main(int argc, char *argv[]) {
     names->push_back("S");
     names->push_back("A");
     names->push_back("B");
-    nse->fa.print(names);
+    nse->dfa.print(names);
 
     cout << "Here we are!" << endl;*/
     return 0;

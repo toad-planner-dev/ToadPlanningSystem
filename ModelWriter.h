@@ -7,25 +7,28 @@
 
 
 #include "Model.h"
+#include "translation/FiniteAutomaton.h"
 
 class ModelWriter {
+    int epsilonAcs = 0;
+    FiniteAutomaton *dfa;
+    StringUtil su;
+    Model *m;
+
+    void writeDomain(ostream &os);
+
+    void writeProblem(ostream &os, int startState, int goalState);
+
+    void writePredDef(ostream &os, int maxState);
+
+    void writeAction(ostream &os, int action, int dfaPrec, int dfaAdd, int dfaDel);
+
+    void writeEpsilonAction(ostream& os, int prec, int add, int del);
 
 public:
-    ModelWriter(Model *model, string basicString, string basicString1);
-    StringUtil su;
 
-    Model* m;
-    string dStr;
-    string pStr;
-    ofstream* dfile;
-    ofstream* pfile;
+    void write(Model *htn, FiniteAutomaton *automaton, string dFile, string pFile);
 
-    void writeAction(int action, int addP, int addAE, int addDE);
-    void writePredDef(int maxState);
-
-    void writeProblem(int startState,int goalState);
-
-    void writeEpsilonAction(int i, int i1, int i2);
 };
 
 
