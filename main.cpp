@@ -1,7 +1,7 @@
 #include <iostream>
 #include "Model.h"
 #include "translation/FiniteAutomaton.h"
-#include "translation/NotSelfEmbedding.h"
+#include "translation/CFGtoFDAtranslator.h"
 #include <vector>
 #include <cassert>
 
@@ -41,47 +41,55 @@ int main(int argc, char *argv[]) {
     //assert(htn->isHtnModel);
 
     htn->calcSCCs();
-    htn->calcSCCGraph();
+    //htn->calcSCCGraph();
 /*
  * Building grammar
  */
-    NotSelfEmbedding *nse = new NotSelfEmbedding();
-    nse->numSymbols = htn->numTasks;
-    nse->numTerminals = htn->numActions;
+    CFGtoFDAtranslator *to2s = new CFGtoFDAtranslator();
+    to2s->numSymbols = htn->numTasks;
+    to2s->numTerminals = htn->numActions;
 
     // initialize Ni sets
-    nse->NumNis = htn->numCyclicSccs;
-    nse->NiSize = new int[htn->numCyclicSccs];
-    nse->Ni = new int*[htn->numCyclicSccs];
-    nse->SymToNi = new int[nse->numSymbols];
-    for(int i = 0; i < nse->numSymbols; i++) {
-        nse->SymToNi[i] = -1; // init as non-recursive
+    to2s->NumNis = htn->numCyclicSccs;
+    to2s->NiSize = new int[htn->numCyclicSccs];
+    to2s->Ni = new int*[htn->numCyclicSccs];
+    to2s->SymToNi = new int[to2s->numSymbols];
+    for(int i = 0; i < to2s->numSymbols; i++) {
+        to2s->SymToNi[i] = -1; // init as non-recursive
     }
 
     for (int k = 0; k < htn->numCyclicSccs; k++) {
         int scc = htn->sccsCyclic[k];
-        nse->NiSize[k] = htn->sccSize[scc];
-        nse->Ni[k] = new int[nse->NiSize[k]];
+        to2s->NiSize[k] = htn->sccSize[scc];
+        to2s->Ni[k] = new int[to2s->NiSize[k]];
         for (int j = 0; j < htn->sccSize[scc]; j++) {
-            nse->Ni[k][j] = htn->sccToTasks[scc][j];
-            nse->SymToNi[nse->Ni[k][j]] = k;
+            to2s->Ni[k][j] = htn->sccToTasks[scc][j];
+            to2s->SymToNi[to2s->Ni[k][j]] = k;
         }
     }
 
     // add methods as rules
     for (int iM = 0; iM < htn->numMethods; iM++) {
         vector<int> *rule = mToRule(htn, iM);
-        nse->addRule(rule);
+        to2s->addRule(rule);
     }
-    nse->analyseRules();
+    to2s->analyseRules();
     int S = htn->initialTask;
-    cout << "Starting symbol: " << S << endl;
 
-    int startState = nse->stateID++;
-    int finalState = nse->stateID++;
-    nse->makeFA(startState, S, finalState);
+    cout << endl << "Creating DFA..." << endl;
+    cout << "- Starting symbol: " << S << endl;
+    int startState = to2s->stateID++;
+    int finalState = to2s->stateID++;
+    to2s->makeFA(startState, S, finalState);
+    cout << "- done!" << endl;
 
-    nse->fa.print(htn->taskNames, startState, finalState);
+    cout << "creating output STRIPS model" << endl;
+    string dFile = "/home/dh/Schreibtisch/temp3/domain01.pddl";
+    string pFile ="/home/dh/Schreibtisch/temp3/problem01.pddl";
+    to2s->writeInstance(htn, dFile, pFile);
+    cout << "done!" << endl;
+
+    //to2s->fa.print(htn->taskNames, startState, finalState);
 
     exit(0);
 /*

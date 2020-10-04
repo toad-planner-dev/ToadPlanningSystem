@@ -2,12 +2,13 @@
 // Created by dh on 28.09.20.
 //
 
-#ifndef TOSTRIPSAPPROXIMATION_NOTSELFEMBEDDING_H
-#define TOSTRIPSAPPROXIMATION_NOTSELFEMBEDDING_H
+#ifndef TOSTRIPSAPPROXIMATION_CFGTOFDATRANSLATOR_H
+#define TOSTRIPSAPPROXIMATION_CFGTOFDATRANSLATOR_H
 
 #include <list>
 #include <vector>
 #include "FiniteAutomaton.h"
+#include "../Model.h"
 
 using namespace std;
 
@@ -21,7 +22,7 @@ struct grRule {
 };
 
 
-class NotSelfEmbedding {
+class CFGtoFDAtranslator {
     // temporal variables
     int *qB; // variable used in algorithm to store newly added ids
     vector<grRule *> tempRules;
@@ -57,7 +58,6 @@ public:
 
     int numRules = 0;
     grRule **rules = nullptr;
-    int maxRightHandside; // maximal length of right-hand side
 
     // for each non-terminal, the first and last rule where is it the left-hand side
     int *rFirst;
@@ -83,7 +83,8 @@ public:
 
     void printRule(grRule *rule);
 
+    void writeInstance(progression::Model *pModel, string dFile, string pFile);
 };
 
 
-#endif //TOSTRIPSAPPROXIMATION_NOTSELFEMBEDDING_H
+#endif //TOSTRIPSAPPROXIMATION_CFGTOFDATRANSLATOR_H

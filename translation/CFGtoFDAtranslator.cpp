@@ -2,10 +2,13 @@
 // Created by dh on 28.09.20.
 //
 
-#include "NotSelfEmbedding.h"
+#include "CFGtoFDAtranslator.h"
+#include "../ModelWriter.h"
 #include <cassert>
+#include <unordered_map>
+#include <fstream>
 
-void NotSelfEmbedding::addRule(vector<int> *r) {
+void CFGtoFDAtranslator::addRule(vector<int> *r) {
     grRule *r2 = new grRule();
     r2->left = r->at(0);
     r2->rLength = r->size() - 1;
@@ -18,7 +21,7 @@ void NotSelfEmbedding::addRule(vector<int> *r) {
     tempRules.push_back(r2);
 }
 
-void NotSelfEmbedding::makeFA(int q0, vector<int> *alpha, int q1) {
+void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
     if (alpha->size() == 1) {
         makeFA(q0, alpha->at(0), q1);
     } else if (alpha->size() > 1) {
@@ -30,7 +33,7 @@ void NotSelfEmbedding::makeFA(int q0, vector<int> *alpha, int q1) {
     }
 }
 
-void NotSelfEmbedding::makeFA(int q0, int A, int q1) {
+void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
     if (A == Epsilon) {
         fa.addRule(q0, A, q1);
     } else if (isTerminalSym(A)) {
@@ -54,7 +57,7 @@ void NotSelfEmbedding::makeFA(int q0, int A, int q1) {
                     int qC = getNewState(NiS, NiSize[Nl], qB, C);
                     for (int l = rFirst[C]; l <= rLast[C]; l++) {
                         grRule *rule = rules[l];
-                        printRule(rule);
+                        //printRule(rule);
                         int D = rule->right[0]; // first right-hand side
                         int Nk = SymToNi[D];
                         if (Nk != Nl) {
@@ -74,7 +77,7 @@ void NotSelfEmbedding::makeFA(int q0, int A, int q1) {
                     int qC = getNewState(NiS, NiSize[Nl], qB, C);
                     for (int l = rFirst[C]; l <= rLast[C]; l++) {
                         grRule *rule = rules[l];
-                        printRule(rule);
+                        //printRule(rule);
                         int D = rule->right[rule->rLength - 1]; // last right-hand side
                         int Nk = SymToNi[D];
                         if (Nk != Nl) {
@@ -91,14 +94,14 @@ void NotSelfEmbedding::makeFA(int q0, int A, int q1) {
         } else { // a non-recursive non-terminal
             for (int l = rFirst[A]; l <= rLast[A]; l++) {
                 grRule *rule = rules[l];
-                printRule(rule);
+                //printRule(rule);
                 makeFA(q0, copySubSeq(rule, 0, rule->rLength), q1);
             }
         }
     }
 }
 
-int NotSelfEmbedding::getNewState(int *NiS, int size, int *qB, int C) const {
+int CFGtoFDAtranslator::getNewState(int *NiS, int size, int *qB, int C) const {
     for (int i = 0; i < size; i++) {
         if (NiS[i] == C) {
             return qB[i];
@@ -108,11 +111,11 @@ int NotSelfEmbedding::getNewState(int *NiS, int size, int *qB, int C) const {
     return -1;
 }
 
-int NotSelfEmbedding::isTerminalSym(int a) {
+int CFGtoFDAtranslator::isTerminalSym(int a) {
     return (a != Epsilon) && (a < this->numTerminals);
 }
 
-vector<int> *NotSelfEmbedding::copySubSeq(grRule *in, int from, int to) {
+vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
     vector<int> *out = new vector<int>;
     assert(from >= 0);
     assert(from < to);
@@ -125,7 +128,7 @@ vector<int> *NotSelfEmbedding::copySubSeq(grRule *in, int from, int to) {
     return out;
 }
 
-void NotSelfEmbedding::sortRules() {
+void CFGtoFDAtranslator::sortRules() {
     int n = numRules;
     bool swapped = true;
     while (swapped) {
@@ -142,15 +145,14 @@ void NotSelfEmbedding::sortRules() {
     }
 }
 
-void NotSelfEmbedding::analyseRules() {
+void CFGtoFDAtranslator::analyseRules() {
     // copy rules
     this->numRules = tempRules.size();
     rules = new grRule *[numRules];
-    maxRightHandside = 0;
     for (int i = 0; i < tempRules.size(); i++) {
         rules[i] = tempRules.at(i);
-        maxRightHandside = max(maxRightHandside, rules[i]->rLength);
     }
+
     sortRules();
     cout << endl;
 
@@ -210,6 +212,14 @@ void NotSelfEmbedding::analyseRules() {
     }
     tempRules.clear();
 
+    // create temp variable
+    int maxSize = 0;
+    for(int i = 0; i< NumNis; i++) {
+        maxSize = max(maxSize, NiSize[i]);
+    }
+    qB = new int[maxSize];
+
+    /*
     for (int i = 0; i < numRules; i++) {
         printRule(rules[i]);
     }
@@ -217,15 +227,19 @@ void NotSelfEmbedding::analyseRules() {
     for (int i = numTerminals; i < numSymbols; i++) {
         cout << i << ": " << rFirst[i] << "-" << rLast[i] << endl;
     }
+    */
 
+    cout << "Partitions of recursive tasks:" << endl;
+    bool isRegular = true;
     for (int i = 0; i < NumNis; i++) {
-        cout << "N" << i << " ";
+        cout << "- N" << i << " ";
         if (NiRec[i] == recRight) {
             cout << "right recursive";
         } else if (NiRec[i] == recLeft) {
             cout << "left recursive";
         } else if (NiRec[i] == recSelf) {
             cout << "self recursive";
+            isRegular = false;
         } else if (NiRec[i] == recCycle) {
             cout << "cyclic";
         } else {
@@ -237,10 +251,20 @@ void NotSelfEmbedding::analyseRules() {
         cout << endl;
     }
 
-    qB = new int[maxRightHandside];
+    cout << endl << "Instance properties:" << endl;
+    if (NumNis == 0) {
+        cout << "- the instance is acyclic. [acyc]" << endl;
+        cout << "- using exact translation." << endl;
+    } else if (isRegular) {
+        cout << "- the instance is recursive, but not self-embedding, i.e. it is regular. [non-self-emb]" << endl;
+        cout << "- using exact translation." << endl;
+    } else {
+        cout << "- the instance is recursive and self-embedding, i.e. it could not be shown that it is regular. [self-emb]" << endl;
+        cout << "- using approximate translation." << endl;
+    }
 }
 
-int NotSelfEmbedding::compareRules(grRule *a, grRule *b) {
+int CFGtoFDAtranslator::compareRules(grRule *a, grRule *b) {
     if (a->left != b->left)
         return a->left - b->left;
     int smaller = std::min(a->rLength, b->rLength);
@@ -252,7 +276,7 @@ int NotSelfEmbedding::compareRules(grRule *a, grRule *b) {
     return 0;
 }
 
-void NotSelfEmbedding::determineRuleRecursion(grRule *r) {
+void CFGtoFDAtranslator::determineRuleRecursion(grRule *r) {
     int Ni = this->SymToNi[r->left];
     if (Ni < 0) { // non-recursive
         return;
@@ -271,7 +295,7 @@ void NotSelfEmbedding::determineRuleRecursion(grRule *r) {
     }
 }
 
-void NotSelfEmbedding::printRule(grRule *rule) {
+void CFGtoFDAtranslator::printRule(grRule *rule) {
     cout << "rule " << rule->left << " -> ";
     for (int i = 0; i < rule->rLength; i++) {
         if (i > 0) {
@@ -289,4 +313,37 @@ void NotSelfEmbedding::printRule(grRule *rule) {
         }
     }
     cout << endl;
+}
+
+void CFGtoFDAtranslator::writeInstance(progression::Model *htn, string dFile, string pFile) {
+
+    cout << "- preparing sets of extra precs/effs...";
+    unordered_map<int, set<pair<int, int>*>*> extraStuff;// = new unordered_map<int, set<int>*>;
+
+    for (auto &it: fa.fda) {
+        Pair *p = it.first;
+        set<int> *labels = it.second;
+        for (int l : *labels) {
+            if (extraStuff.find(l) == extraStuff.end()) {
+                set<pair<int, int>*>* s = new set<pair<int, int>*>;
+                extraStuff[l] = s;
+            }
+            extraStuff[l]->insert(new pair<int, int>(p->from, p->to));
+        }
+    }
+    cout << "done" << endl;
+
+    ModelWriter mw(htn, dFile, pFile);
+    mw.writePredDef(stateID);
+    for (int i = 0; i < htn->numActions; i++) {
+        if (extraStuff.find(i) == extraStuff.end())
+            continue; // unreachable via automaton
+        for (pair<int, int>* extra : *extraStuff[i]) {
+            mw.writeAction(i, extra->first, extra->second, extra->first);
+        }
+    }
+    for (pair<int, int>* extra : *extraStuff[-1]) {
+        mw.writeEpsilonAction(extra->first, extra->second, extra->first);
+    }
+    mw.writeProblem(0, 1);
 }
