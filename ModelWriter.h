@@ -29,6 +29,8 @@ public:
 
     void write(Model *htn, FiniteAutomaton *automaton, string dFile, string pFile);
 
+    void writeActionCF(ostream& ostream, int action, set<pair<int, int>*>* cfSet);
+    void writeEpsilonActionCF(ostream& os,  set<pair<int, int>*>* cfSet);
 };
 
 

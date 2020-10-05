@@ -53,7 +53,9 @@ void ModelWriter::writeDomain(ostream &os) {
         for (pair<int, int>* extra : *extraStuff[i]) {
             writeAction(os, i, extra->first, extra->second, extra->first);
         }
+        //writeActionCF(os, i, extraStuff[i]);
     }
+    //writeEpsilonActionCF(os, extraStuff[-1]);
     for (pair<int, int>* extra : *extraStuff[-1]) {
         writeEpsilonAction(os, extra->first, extra->second, extra->first);
     }
@@ -131,4 +133,43 @@ void ModelWriter::writeProblem(ostream& os, int startState,int goalState) {
     os << "      (dfa s" << dfa->finalState << ")" << endl;
     os << "   ))" << endl;
     os << ")" << endl;
+}
+
+void ModelWriter::writeActionCF(ostream& os, int action, set<pair<int, int> *> *cfSet) {
+    os << "   (:action " << m->taskNames[action] << endl;
+    os << "    :precondition (and" << endl;
+    for (int i = 0; i < m->numPrecs[action]; i++) {
+        int prec = m->precLists[action][i];
+        os << "      (" << su.cleanStr(m->factStrs[prec]) << ")" << endl;
+    }
+    os << "    )" << endl;
+    os << "    :effect (and" << endl;
+    for (int i = 0; i < m->numAdds[action]; i++) {
+        int add = m->addLists[action][i];
+        os << "      (" << su.cleanStr(m->factStrs[add]) << ")" << endl;
+    }
+    for (int i = 0; i < m->numDels[action]; i++) {
+        int del = m->delLists[action][i];
+        os << "      (not (" << su.cleanStr(m->factStrs[del]) << "))" << endl;
+    }
+    for (pair<int, int>* extra : *cfSet) {
+        os << "      (when (and (dfa s" << extra->first << "))";
+        os << " (and (dfa s" << extra->second << ")" ;
+        os << " (not (dfa s" << extra->first << "))))" << endl;
+    }
+    os << "    )" << endl;
+    os << "   )" << endl << endl;
+}
+
+void ModelWriter::writeEpsilonActionCF(ostream &os,  set<pair<int, int> *> *cfSet) {
+    os << "   (:action epsilon-" << epsilonAcs++ << endl;
+    os << "    :precondition (and )" << endl;
+    os << "    :effect (and" << endl;
+    for (pair<int, int>* extra : *cfSet) {
+        os << "      (when (and (dfa s" << extra->first << "))";
+        os << " (and (dfa s" << extra->second << ")" ;
+        os << " (not (dfa s" << extra->first << "))))" << endl;
+    }
+    os << "    )" << endl;
+    os << "   )" << endl << endl;
 }
