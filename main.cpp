@@ -86,7 +86,7 @@ int main(int argc, char *argv[]) {
     cout << "- done!" << endl;
 
     cout << "creating output STRIPS model" << endl;
-    string dFile = "/home/dh/Schreibtisch/temp3/pddl-models/domain01.pddl";
+    string dFile = "/home/dh/Schreibtisch/temp3/sas/transport30.sas";
     string pFile ="/home/dh/Schreibtisch/temp3/pddl-models/problem01.pddl";
 
     ModelWriter mw;
