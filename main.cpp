@@ -95,114 +95,24 @@ int main(int argc, char *argv[]) {
     ModelWriter mw;
     mw.write(htn, to2s->dfa, dFile, pFile);
     cout << "done!" << endl;
-    mw.dfa->print(htn->taskNames, 0, 1);
+    //mw.dfa->print(htn->taskNames, 0, 1);
 
     //to2s->dfa.print(htn->taskNames, startState, finalState);
-
-    exit(0);
-/*
-    int a = 0;
-    int b = 1;
-    int c = 2;
-    int d = 3;
-    int S = 4;
-    int A = 5;
-    int B = 6;
-
-    vector<int> *Ni = new vector<int>;
-    Ni->push_back(-1);
-    Ni->push_back(-1);
-    Ni->push_back(-1);
-    Ni->push_back(-1);
-    Ni->push_back(0);
-    Ni->push_back(0);
-    Ni->push_back(1);
-
-    vector<int> *rule;
-    rule = new vector<int>; // S -> Aa
-    rule->push_back(S);
-    rule->push_back(A);
-    rule->push_back(a);
-    nse->addRule(rule);
-
-    rule = new vector<int>; // A -> SB
-    rule->push_back(A);
-    rule->push_back(S);
-    rule->push_back(B);
-    nse->addRule(rule);
-
-    rule = new vector<int>; // A -> Bb
-    rule->push_back(A);
-    rule->push_back(B);
-    rule->push_back(b);
-    nse->addRule(rule);
-
-    rule = new vector<int>; // B -> Bc
-    rule->push_back(B);
-    rule->push_back(B);
-    rule->push_back(c);
-    nse->addRule(rule);
-
-    rule = new vector<int>; // B -> d
-    rule->push_back(B);
-    rule->push_back(d);
-    nse->addRule(rule);
-
-    cout << "- calculate recursive non-terminals (N bar)." << endl;
-    for (int i = 0; i < htn->numCyclicSccs; i++) {
-        int scc = htn->sccsCyclic[i];
-        for (int j = 0; j < htn->sccSize[scc]; j++) {
-            int task = htn->sccToTasks[scc][j];
-            cout << scc << " " << htn->taskNames[task] << endl;
-        }
-    }
-
-
-
-
-    // Nbar = {S, A, B}
-    // N1 = {S, A} rec(N1) = left
-    // N2 = {B}    rec(N2) = left
-
-    vector<int> *N = new vector<int>;
-    N->push_back(S);
-    N->push_back(A);
-    nse->Nisets.push_back(N);
-
-    N = new vector<int>;
-    N->push_back(B);
-    nse->Nisets.push_back(N);
-
-    nse->Ni = Ni;
-    nse->recursion = new vector<int>;
-    nse->recursion->push_back(nse->left);
-    nse->recursion->push_back(nse->left);
-    nse->makeFA(nse->stateID++, S, nse->stateID++);
-
-    vector<string> *names = new vector<string>;
-    names->push_back("a");
-    names->push_back("b");
-    names->push_back("c");
-    names->push_back("d");
-    names->push_back("S");
-    names->push_back("A");
-    names->push_back("B");
-    nse->dfa.print(names);
-
-    cout << "Here we are!" << endl;*/
     return 0;
 }
 
 vector<int> *mToRule(const Model *htn, int iM) {
-    cout << "----" << endl;
-    cout << "d: " << htn->decomposedTask[iM] << " " << htn->taskNames[htn->decomposedTask[iM]] << endl;
-    for(int i = 0; i < htn->numSubTasks[iM]; i++) {
-        int st = htn->subTasks[iM][i];
-        cout << i << " " << st <<  " " << htn->taskNames[st] << endl;
-    }
-
-    for(int i = 0; i < htn->numOrderings[iM]; i+= 2) {
-        cout << htn->ordering[iM][i] << " < " << htn->ordering[iM][i + 1] << endl;
+    bool printDebug = false;
+    if(printDebug) {
+        cout << "----" << endl;
+        cout << "d: " << htn->decomposedTask[iM] << " " << htn->taskNames[htn->decomposedTask[iM]] << endl;
+        for (int i = 0; i < htn->numSubTasks[iM]; i++) {
+            int st = htn->subTasks[iM][i];
+            cout << i << " " << st << " " << htn->taskNames[st] << endl;
+        }
+        for(int i = 0; i < htn->numOrderings[iM]; i+= 2) {
+            cout << htn->ordering[iM][i] << " < " << htn->ordering[iM][i + 1] << endl;
+        }
     }
 
     vector<int> *rule = new vector<int>;
@@ -243,9 +153,11 @@ vector<int> *mToRule(const Model *htn, int iM) {
         rule->push_back(st);
     }
 
-    cout << rule->at(0) << " -> ";
-    for(int i = 1; i < rule->size(); i++)
-        cout << rule->at(i) << " ";
-    cout << endl;
+    if(printDebug) {
+        cout << rule->at(0) << " -> ";
+        for (int i = 1; i < rule->size(); i++)
+            cout << rule->at(i) << " ";
+        cout << endl;
+    }
     return rule;
 }

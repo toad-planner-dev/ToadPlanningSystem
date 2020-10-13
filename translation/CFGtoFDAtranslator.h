@@ -84,6 +84,7 @@ public:
     void printRule(grRule *rule);
 
     bool isRegurlar;
+    bool printDebug = false;
 };
 
 

@@ -8,8 +8,6 @@
 
 void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
     Pair *p = new Pair(q0, q1);
-    if(q1 == 2)
-        cout << " " << endl;
     set<int> *labels;
     if (this->fda.find(p) == fda.end()) {
         labels = new set<int>;

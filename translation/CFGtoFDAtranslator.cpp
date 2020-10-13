@@ -27,8 +27,6 @@ void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
         makeFA(q0, alpha->at(0), q1);
     } else if (alpha->size() > 1) {
         int q = this->dfa->stateID++;
-        if(q == 0)
-            cout << " asd asd" << endl;
         int X = alpha->at(0);
         vector<int>* beta= new vector<int>;
         for(int i = 1; i < alpha->size();i++)
@@ -48,77 +46,58 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
         if (SymToNi[A] >= 0) {
             // get partition containing A
             int Nl = SymToNi[A];
-            int *NiS = Ni[Nl];
 
             // create new states
             qB.clear();
             for (int j = 0; j < NiSize[Nl]; j++) {
                 int task = Ni[Nl][j];
-                if(task == A) {
-                    if (NiRec[Nl] == recLeft)
-                        qB[task] = q0;
-                    else
-                        qB[task] = q1;
-                }
-                else
+                if(task != A) {
                     qB[task] = this->dfa->stateID++;
+                }
             }
 
             // left recursion
             if (NiRec[Nl] == recLeft) {
+                qB[A] = q0;
                 // iterate rules that decompose some C belonging to the same partition
                 for (int i = 0; i < NiSize[Nl]; i++) {
                     int C = Ni[Nl][i]; // left-hand side
-                    //int qC = getNewState(NiS, NiSize[Nl], qB, C);
                     int qC = qB[C];
                     for (int l = rFirst[C]; l <= rLast[C]; l++) {
                         grRule *rule = rules[l];
-                        printRule(rule);
+                        //printRule(rule);
                         int D = rule->right[0]; // first right-hand side
                         int Nk = SymToNi[D];
                         if (Nk != Nl) {
                             makeFA(q0, copySubSeq(rule, 0, rule->rLength), qC);
                         } else {
-                            //int qD = getNewState(NiS, NiSize[Nl], qB, D);
                             int qD = qB[D];
                             makeFA(qD, copySubSeq(rule, 1, rule->rLength), qC);
                         }
                     }
                 }
-                //int qA = getNewState(NiS, NiSize[Nl], qB, A);
                 int qA = qB[A];
                 dfa->addRule(qA, Epsilon, q1);
             } else { // right or cyclic
+                qB[A] = q1;
                 // iterate rules that decompose some C belonging to the same partition
                 for (int i = 0; i < NiSize[Nl]; i++) {
                     int C = Ni[Nl][i]; // left-hand side
-                    //int qC = getNewState(NiS, NiSize[Nl], qB, C);
                     int qC = qB[C];
-                    if(qC == 2)
-                        cout << "test" << endl;
                     for (int l = rFirst[C]; l <= rLast[C]; l++) {
                         grRule *rule = rules[l];
-                        printRule(rule);
+                        //printRule(rule);
                         int D = rule->right[rule->rLength - 1]; // last right-hand side
                         int Nk = SymToNi[D];
                         if (Nk != Nl) {
                             makeFA(qC, copySubSeq(rule, 0, rule->rLength), q1);
                         } else {
-                            //int qD = getNewState(NiS, NiSize[Nl], qB, D);
                             int qD = qB[D];
-                            if(qD == 2)
-                                cout << "test" << endl;
                             makeFA(qC, copySubSeq(rule, 0, rule->rLength - 1), qD);
                         }
                     }
                 }
-                //int qA = getNewState(NiS, NiSize[Nl], qB, A);
                 int qA = qB[A];
-                if(qA == 2)
-                    cout << "test" << endl;
-                if(qA == 0)
-                    cout << " asd asd" << endl;
-
                 dfa->addRule(q0, Epsilon, qA);
             }
         } else { // a non-recursive non-terminal
@@ -248,15 +227,15 @@ void CFGtoFDAtranslator::analyseRules() {
     for(int i = 0; i< NumNis; i++) {
         maxSize = max(maxSize, NiSize[i]);
     }
-    //qB = new int[maxSize];
 
+    if(printDebug) {
+        for (int i = 0; i < numRules; i++) {
+            printRule(rules[i]);
+        }
 
-    for (int i = 0; i < numRules; i++) {
-        printRule(rules[i]);
-    }
-
-    for (int i = numTerminals; i < numSymbols; i++) {
-        cout << i << ": " << rFirst[i] << "-" << rLast[i] << endl;
+        for (int i = numTerminals; i < numSymbols; i++) {
+            cout << i << ": " << rFirst[i] << "-" << rLast[i] << endl;
+        }
     }
 
 
