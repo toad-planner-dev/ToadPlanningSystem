@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
 /*
  * Building grammar
  */
-    cout << "Starting Translation" << endl;
+    cout << "Starting translation" << endl;
     CFGtoFDAtranslator *to2s = new CFGtoFDAtranslator();
     to2s->numSymbols = htn->numTasks;
     to2s->numTerminals = htn->numActions;
@@ -76,25 +76,26 @@ int main(int argc, char *argv[]) {
         vector<int> *rule = mToRule(htn, iM);
         to2s->addRule(rule);
     }
-    cout << "- analysing rules" << endl;
+    cout << "Analysing rules" << endl;
     to2s->analyseRules();
     int S = htn->initialTask;
 
-    cout << endl << "Creating DFA..." << endl;
-    cout << "- Starting symbol: " << S << endl;
-
+    cout << "Creating DFA" << endl;
+    cout << "- starting symbol: " << S << endl;
+    cout << "- starting dfa...";
     to2s->dfa->startState = to2s->dfa->stateID++;
     to2s->dfa->finalState = to2s->dfa->stateID++;
     to2s->makeFA(to2s->dfa->startState, S, to2s->dfa->finalState);
-    cout << "- done!" << endl;
+    cout << "(done)" << endl;
+    cout << "- dfa contains " << to2s->dfa->stateID << " states and " << to2s->dfa->numTransitions << " transitions." << endl;
 
-    cout << "creating output STRIPS model" << endl;
+    cout << "Creating output STRIPS model" << endl;
     string dFile = "/home/dh/Schreibtisch/temp3/sas/domain.pddl";
     string pFile ="/home/dh/Schreibtisch/temp3/sas/problem.pddl";
 
     ModelWriter mw;
     mw.write(htn, to2s->dfa, dFile, pFile);
-    cout << "done!" << endl;
+    cout << "Finished!" << endl;
     //mw.dfa->print(htn->taskNames, 0, 1);
 
     //to2s->dfa.print(htn->taskNames, startState, finalState);

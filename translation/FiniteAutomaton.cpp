@@ -15,6 +15,8 @@ void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
     } else {
         labels = this->fda[p];
     }
+    if(labels->find(alpha) == labels->end())
+        this->numTransitions++;
     labels->insert(alpha);
 }
 

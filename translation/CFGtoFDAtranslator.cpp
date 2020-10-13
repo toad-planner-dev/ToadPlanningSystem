@@ -184,10 +184,11 @@ void CFGtoFDAtranslator::analyseRules() {
         rules[i] = tempRules.at(i);
     }
 
-    cout << "sorting" << endl;
+    cout << "- sorting rules...";
     sortRules();
-    cout << "done" << endl;
+    cout << "(done)" << endl;
 
+    cout << "- analysing recursion...";
     // store rules for each symbol
     rFirst = new int[numSymbols];
     rLast = new int[numSymbols];
@@ -249,6 +250,7 @@ void CFGtoFDAtranslator::analyseRules() {
     for (int i = 0; i < NumNis; i++) {
         maxSize = max(maxSize, NiSize[i]);
     }
+    cout << "(done)" << endl;
 
     if (printDebug) {
         for (int i = 0; i < numRules; i++) {
@@ -260,11 +262,10 @@ void CFGtoFDAtranslator::analyseRules() {
         }
     }
 
-
-    cout << "Partitions of recursive tasks:" << endl;
+    cout << "- partitions of recursive tasks:" << endl;
     bool isRegular = true;
     for (int i = 0; i < NumNis; i++) {
-        cout << "- N" << i << " ";
+        cout << "  - N" << i << " ";
         if (NiRec[i] == recRight) {
             cout << "right recursive";
         } else if (NiRec[i] == recLeft) {
@@ -283,20 +284,20 @@ void CFGtoFDAtranslator::analyseRules() {
         cout << endl;
     }
 
-    cout << endl << "Instance properties:" << endl;
+    cout <<  "- instance properties:" << endl;
     if (NumNis == 0) {
-        cout << "- the instance is acyclic. [acyc]" << endl;
-        cout << "- using exact translation." << endl;
+        cout << "  - the instance is acyclic. [acyc]" << endl;
+        cout << "  - using exact translation." << endl;
         this->isRegurlar = true;
     } else if (isRegular) {
-        cout << "- the instance is recursive, but not self-embedding, i.e. it is regular. [non-self-emb]" << endl;
-        cout << "- using exact translation." << endl;
+        cout << "  - the instance is recursive, but not self-embedding, i.e. it is regular. [non-self-emb]" << endl;
+        cout << "  - using exact translation." << endl;
         this->isRegurlar = true;
     } else {
         cout
-                << "- the instance is recursive and self-embedding, i.e. it could not be shown that it is regular. [self-emb]"
+                << "  - the instance is recursive and self-embedding, i.e. it could not be shown that it is regular. [self-emb]"
                 << endl;
-        cout << "- using approximate translation." << endl;
+        cout << "  - using approximate translation." << endl;
         this->isRegurlar = false;
     }
 }

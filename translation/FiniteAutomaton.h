@@ -23,6 +23,7 @@ public:
     int stateID = 0; // next state id
     int startState = -1;
     int finalState = -1;
+    int numTransitions = 0;
 };
 
 
