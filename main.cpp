@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
 /*
  * Building grammar
  */
+    cout << "Starting Translation" << endl;
     CFGtoFDAtranslator *to2s = new CFGtoFDAtranslator();
     to2s->numSymbols = htn->numTasks;
     to2s->numTerminals = htn->numActions;
@@ -59,6 +60,7 @@ int main(int argc, char *argv[]) {
         to2s->SymToNi[i] = -1; // init as non-recursive
     }
 
+    cout << "- collecting SCC data" << endl;
     for (int k = 0; k < htn->numCyclicSccs; k++) {
         int scc = htn->sccsCyclic[k];
         to2s->NiSize[k] = htn->sccSize[scc];
@@ -69,11 +71,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    // add methods as rules
+    cout << "- adding methods as grammar rules" << endl;
     for (int iM = 0; iM < htn->numMethods; iM++) {
         vector<int> *rule = mToRule(htn, iM);
         to2s->addRule(rule);
     }
+    cout << "- analysing rules" << endl;
     to2s->analyseRules();
     int S = htn->initialTask;
 
@@ -86,12 +89,13 @@ int main(int argc, char *argv[]) {
     cout << "- done!" << endl;
 
     cout << "creating output STRIPS model" << endl;
-    string dFile = "/home/dh/Schreibtisch/temp3/sas/transport30.sas";
-    string pFile ="/home/dh/Schreibtisch/temp3/pddl-models/problem01.pddl";
+    string dFile = "/home/dh/Schreibtisch/temp3/sas/domain.pddl";
+    string pFile ="/home/dh/Schreibtisch/temp3/sas/problem.pddl";
 
     ModelWriter mw;
     mw.write(htn, to2s->dfa, dFile, pFile);
     cout << "done!" << endl;
+    mw.dfa->print(htn->taskNames, 0, 1);
 
     //to2s->dfa.print(htn->taskNames, startState, finalState);
 
@@ -190,6 +194,17 @@ int main(int argc, char *argv[]) {
 }
 
 vector<int> *mToRule(const Model *htn, int iM) {
+    cout << "----" << endl;
+    cout << "d: " << htn->decomposedTask[iM] << " " << htn->taskNames[htn->decomposedTask[iM]] << endl;
+    for(int i = 0; i < htn->numSubTasks[iM]; i++) {
+        int st = htn->subTasks[iM][i];
+        cout << i << " " << st <<  " " << htn->taskNames[st] << endl;
+    }
+
+    for(int i = 0; i < htn->numOrderings[iM]; i+= 2) {
+        cout << htn->ordering[iM][i] << " < " << htn->ordering[iM][i + 1] << endl;
+    }
+
     vector<int> *rule = new vector<int>;
     rule->push_back(htn->decomposedTask[iM]);
 
@@ -205,7 +220,7 @@ vector<int> *mToRule(const Model *htn, int iM) {
             bool unconstrained = true;
             for (int o = 0; o < htn->numOrderings[iM]; o += 2) {
                 int p = htn->ordering[iM][o];
-                int s = htn->ordering[iM][o] + 1;
+                int s = htn->ordering[iM][o + 1];
                 if ((s == iST) && (done.find(p) == done.end())) {
                     unconstrained = false;
                     break;
@@ -227,5 +242,10 @@ vector<int> *mToRule(const Model *htn, int iM) {
         int st = htn->subTasks[iM][first];
         rule->push_back(st);
     }
+
+    cout << rule->at(0) << " -> ";
+    for(int i = 1; i < rule->size(); i++)
+        cout << rule->at(i) << " ";
+    cout << endl;
     return rule;
 }

@@ -50,193 +50,214 @@ void ModelWriter::writeDomain(ostream &os) {
         writePredDef(os, dfa->stateID);
 
         for (int i = 0; i < m->numActions; i++) {
-            if (extraStuff.find(i) == extraStuff.end())
-                continue; // unreachable via automaton
+            if (extraStuff.find(i) == extraStuff.end()) {
+                cout << "- automaton contains no rule for action " << m->taskNames[i] << endl;
+                continue;
+            }
             for (pair<int, int> *extra : *extraStuff[i]) {
                 writeAction(os, i, extra->first, extra->second, extra->first);
             }
             //writeActionCF(os, i, extraStuff[i]);
         }
         //writeEpsilonActionCF(os, extraStuff[-1]);
-        for (pair<int, int> *extra : *extraStuff[-1]) {
-            writeEpsilonAction(os, extra->first, extra->second, extra->first);
+        if(extraStuff.find(-1) != extraStuff.end()) {
+            for (pair<int, int> *extra : *extraStuff[-1]) {
+                writeEpsilonAction(os, extra->first, extra->second, extra->first);
+            }
+        } else {
+            cout << "- automaton contains no epsilon transitions" << endl;
         }
         os << ")" << endl;
     } else {
-        os << "begin_version" << endl;
-        os << "3" << endl;
-        os << "end_version" << endl;
-        os << "begin_metric" << endl;
-        os << "0" << endl;
-        os << "end_metric" << endl;
+        writeSASPlus(os, extraStuff);
+    }
+}
 
-        os << m->numVars + 1 << endl; // number of variables
+void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *> &extraStuff) {
+    os << "begin_version" << endl;
+    os << "3" << endl;
+    os << "end_version" << endl;
+    os << "begin_metric" << endl;
+    os << "0" << endl;
+    os << "end_metric" << endl;
 
-        // write original variables
-        for (int i = 0; i < m->numVars; i++) {
-            os << "begin_variable" << endl;
-            os << "var" << i << endl;
-            os << "-1" << endl;
-            os << (m->lastIndex[i] - m->firstIndex[i] + 1) << endl;
-            for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
-                os << "Atom " << su.cleanStr(m->factStrs[j]) << endl;
-            }
-            os << "end_variable" << endl;
-        }
+    os << m->numVars + 1 << endl; // number of variables
 
-        // write dfa states
+    // write original variables
+    for (int i = 0; i < m->numVars; i++) {
         os << "begin_variable" << endl;
-        os << "var" << m->numVars << endl;
+        os << "var" << i << endl;
         os << "-1" << endl;
-        os << dfa->stateID << endl;
-        for (int i = 0; i < dfa->stateID; i++) {
-            os << "Atom dfa(s" << i << ")" << endl;
+        os << (m->lastIndex[i] - m->firstIndex[i] + 1) << endl;
+        for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
+            os << "Atom " << su.cleanStr(m->factStrs[j]) << endl;
         }
         os << "end_variable" << endl;
+    }
 
-        // mutex groups
-        os << "0" << endl;
+    // write dfa states
+    os << "begin_variable" << endl;
+    os << "var" << m->numVars << endl;
+    os << "-1" << endl;
+    os << dfa->stateID << endl;
+    for (int i = 0; i < dfa->stateID; i++) {
+        os << "Atom dfa(s" << i << ")" << endl;
+    }
+    os << "end_variable" << endl;
 
-        // initial state
-        os << "begin_state" << endl;
-        int s0[m->numVars];
-        for (int i = 0; i < m->numVars; i++) {
-            s0[i] = -1;
-        }
-        for (int i = 0; i < m->s0Size; i++) {
-            int val = m->s0List[i];
-            int var = 0;
-            while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
-                var++;
-            if (s0[var] != -1) {
-                cout << "error: two values of same sas+ variable are set in s0" << endl;
-                exit(-1);
-            }
-            s0[var] = val - m->firstIndex[var];
-        }
-        for (int i = 0; i < m->numVars; i++) {
-            os << s0[i] << endl;
-        }
-        os << "0" << endl; // initial value of automaton
-        os << "end_state" << endl;
+    // mutex groups
+    os << "0" << endl;
 
-        // write goal definition
-        os << "begin_goal" << endl;
-        os << m->gSize + 1 << endl;
-        for (int i = 0; i < m->gSize; i++) {
-            int val = m->gList[i];
-            int var = 0;
-            while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
-                var++;
-            os << var << " " << (val - m->firstIndex[var]);
+    // initial state
+    os << "begin_state" << endl;
+    int s0[m->numVars];
+    for (int i = 0; i < m->numVars; i++) {
+        s0[i] = -1;
+    }
+    for (int i = 0; i < m->s0Size; i++) {
+        int val = m->s0List[i];
+        int var = 0;
+        while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
+            var++;
+        if (s0[var] != -1) {
+            cout << "error: two values of same sas+ variable are set in s0" << endl;
+            exit(-1);
         }
-        os << m->numVars << " " << "1" << endl; // reach final state of automaton
-        os << "end_goal" << endl;
+        s0[var] = val - m->firstIndex[var];
+    }
+    for (int i = 0; i < m->numVars; i++) {
+        os << s0[i] << endl;
+    }
+    os << "0" << endl; // initial value of automaton
+    os << "end_state" << endl;
 
-        // count actions
-        int numActions = 0;
-        for (int i = -1; i < m->numActions; i++) {
-            if (extraStuff.find(i) == extraStuff.end()) {
-                continue; // unreachable via automaton
-            }
-            numActions += extraStuff[i]->size();
-        }
-        os << numActions << endl;
+    // write goal definition
+    os << "begin_goal" << endl;
+    os << m->gSize + 1 << endl;
+    for (int i = 0; i < m->gSize; i++) {
+        int val = m->gList[i];
+        int var = 0;
+        while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
+            var++;
+        os << var << " " << (val - m->firstIndex[var]) << endl;
+    }
+    os << m->numVars << " " << "1" << endl; // reach final state of automaton
+    os << "end_goal" << endl;
 
-        // write actions
-        int varPrec[m->numVars];
-        int varAdd[m->numVars];
-        int varDel[m->numVars];
-        for (int i = 0; i < m->numVars; i++) {
-            varPrec[i] = -1;
-            varAdd[i] = -1;
-            varDel[i] = -1;
+    // count actions
+    int numActions = 0;
+    for (int i = -1; i < m->numActions; i++) {
+        if (extraStuff.find(i) == extraStuff.end()) {
+            continue; // unreachable via automaton
         }
-        vector<int> prevail;
-        vector<int> effect;
-        for (int i = 0; i < m->numActions; i++) {
-            if (extraStuff.find(i) == extraStuff.end()) {
-                continue; // unreachable via automaton
-            }
-            // generate FD's SAS+ format
-            getSASVal(varPrec, m->precLists[i], m->numPrecs[i], i);
-            getSASVal(varAdd, m->addLists[i], m->numAdds[i], i);
-            getSASVal(varDel, m->delLists[i], m->numDels[i], i);
-            prevail.clear();
-            effect.clear();
-            for (int j = 0; j < m->numVars; j++) {
-                if ((varPrec[j] != -1) && (varAdd[j] == -1)) {
-                    // prevail constraint
+        numActions += extraStuff[i]->size();
+    }
+    os << numActions << endl;
+
+    // write actions
+    int varPrec[m->numVars];
+    int varAdd[m->numVars];
+    int varDel[m->numVars];
+    for (int i = 0; i < m->numVars; i++) {
+        varPrec[i] = -1;
+        varAdd[i] = -1;
+        varDel[i] = -1;
+    }
+    vector<int> prevail;
+    vector<int> effect;
+    for (int i = 0; i < m->numActions; i++) {
+        if (extraStuff.find(i) == extraStuff.end()) {
+            continue; // unreachable via automaton
+        }
+        // generate FD's SAS+ format
+        if (getSASVal(varPrec, m->precLists[i], m->numPrecs[i], i)) {
+            cout << "error: two values of same sas+ variable are in precondition of action " << m->taskNames[i] << endl;
+            exit(-1);
+        }
+        if (getSASVal(varAdd, m->addLists[i], m->numAdds[i], i)){
+            cout << "error: two values of same sas+ variable are in effect of action " << m->taskNames[i] << endl;
+            exit(-1);
+        }
+        getSASVal(varDel, m->delLists[i], m->numDels[i], i);
+        prevail.clear();
+        effect.clear();
+        for (int j = 0; j < m->numVars; j++) {
+            if ((varPrec[j] != -1) && (varAdd[j] == -1)) {
+                // prevail constraint
+                prevail.push_back(j);
+                prevail.push_back(varPrec[j]);
+                varPrec[j] = -1;
+            } else if ((varPrec[j] != -1) && (varAdd[j] != -1)) {
+                if (varPrec[j] == varAdd[j]) { // this is actually a prevail constraint
                     prevail.push_back(j);
                     prevail.push_back(varPrec[j]);
-                    varPrec[j] = -1;
-                } else if ((varPrec[j] != -1) && (varAdd[j] != -1)) {
-                    if (varPrec[j] == varAdd[j]) { // this is actually a prevail constraint
-                        prevail.push_back(j);
-                        prevail.push_back(varPrec[j]);
-                    } else {
-                        effect.push_back(0); // not conditional
-                        effect.push_back(j);
-                        effect.push_back(varPrec[j]); // value needed before
-                        effect.push_back(varAdd[j]); // value the variable is set to
-                        assert(varDel[j] == varPrec[j]);
-                    }
-                    varPrec[j] = -1;
-                    varAdd[j] = -1;
-                    varDel[j] = -1;
-                } else if ((varPrec[j] == -1) && (varAdd[j] != -1)) {
+                } else {
                     effect.push_back(0); // not conditional
                     effect.push_back(j);
-                    effect.push_back(-1); // value needed before
+                    effect.push_back(varPrec[j]); // value needed before
                     effect.push_back(varAdd[j]); // value the variable is set to
-                    varAdd[j] = -1;
-                    cout << "!!!!!!!!!!!!!! It happens!" << endl;
+                    if (varDel[j] != varPrec[j])
+                        cout << m->taskNames[i] << endl;
+                    //assert(varDel[j] == varPrec[j]);
                 }
-            }
-            // write everything
-            for (pair<int, int> *extra : *extraStuff[i]) {
-                os << "begin_operator" << endl;
-                os << m->taskNames[i] << endl;
-                os << prevail.size() / 2 << endl;
-                for (int j = 0; j < prevail.size(); j += 2) {
-                    os << prevail[j] << " " << prevail[j + 1] << endl;
-                }
-                os << (effect.size() / 4 + 1) << endl; // one is added for the dfa
-                for (int j = 0; j < effect.size(); j += 4) {
-                    os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << endl;
-                }
-                // dfa effect
-                os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
-                os << 0 << endl; // action costs, 0 means unicosts
-                os << "end_operator" << endl;
+                varPrec[j] = -1;
+                varAdd[j] = -1;
+                varDel[j] = -1;
+            } else if ((varPrec[j] == -1) && (varAdd[j] != -1)) {
+                effect.push_back(0); // not conditional
+                effect.push_back(j);
+                effect.push_back(-1); // value needed before
+                effect.push_back(varAdd[j]); // value the variable is set to
+                varAdd[j] = -1;
+                cout << "!!!!!!!!!!!!!! It happens!" << endl;
             }
         }
-        for (pair<int, int> *extra : *extraStuff[-1]) {
+        // write everything
+        for (pair<int, int> *extra : *extraStuff[i]) {
             os << "begin_operator" << endl;
-            os << "epsilon" << endl;
-            os << 0 << endl; // prevail constraints
-            os << 1 << endl; // effects
+            os << m->taskNames[i] << endl;
+            os << prevail.size() / 2 << endl;
+            for (int j = 0; j < prevail.size(); j += 2) {
+                os << prevail[j] << " " << prevail[j + 1] << endl;
+            }
+            os << (effect.size() / 4 + 1) << endl; // one is added for the dfa
+            for (int j = 0; j < effect.size(); j += 4) {
+                os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << endl;
+            }
+            // dfa effect
             os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
             os << 0 << endl; // action costs, 0 means unicosts
             os << "end_operator" << endl;
         }
-        os << 0 << endl;
     }
+    for (pair<int, int> *extra : *extraStuff[-1]) {
+        os << "begin_operator" << endl;
+        os << "epsilon" << endl;
+        os << 0 << endl; // prevail constraints
+        os << 1 << endl; // effects
+        os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
+        os << 0 << endl; // action costs, 0 means unicosts
+        os << "end_operator" << endl;
+    }
+    os << 0 << endl;
 }
 
-void ModelWriter::getSASVal(int *varPrec, int *l, int numVals, int action) const {
+bool ModelWriter::getSASVal(int *varPrec, int *l, int numVals, int action) const {
+    bool result = false;
     for (int j = 0; j < numVals; j++) {
         int val = l[j];
         int var = 0;
         while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
             var++;
         if (varPrec[var] != -1) {
-            cout << "error: two values of same sas+ variable are in precondition/effect of action "
+            result = true;
+            /*cout << "error: two values of same sas+ variable are in precondition/effect of action "
                  << m->taskNames[action] << endl;
-            exit(-1);
+            exit(-1);*/
         }
         varPrec[var] = val - m->firstIndex[var];
     }
+    return result;
 }
 
 void ModelWriter::writePredDef(ostream &os, int maxState) {
@@ -263,13 +284,14 @@ void ModelWriter::writePredDef(ostream &os, int maxState) {
 }
 
 void ModelWriter::writeAction(ostream &os, int action, int dfaPrec, int dfaAdd, int dfaDel) {
-    os << "   (:action " << m->taskNames[action] << endl;
+    os << "   (:action " << m->taskNames[action] << "-id" << action << endl;
     os << "    :precondition (and" << endl;
     for (int i = 0; i < m->numPrecs[action]; i++) {
         int prec = m->precLists[action][i];
         os << "      (" << su.cleanStr(m->factStrs[prec]) << ")" << endl;
     }
-    os << "      (dfa s" << dfaPrec << "))" << endl;
+    os << "      (dfa s" << dfaPrec << ")";
+    os << ")" << endl;
     os << "    :effect (and" << endl;
     for (int i = 0; i < m->numAdds[action]; i++) {
         int add = m->addLists[action][i];

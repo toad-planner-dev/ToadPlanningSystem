@@ -24,14 +24,15 @@ struct grRule {
 
 class CFGtoFDAtranslator {
     // temporal variables
-    int *qB; // variable used in algorithm to store newly added ids
+    //int *qB; // variable used in algorithm to store newly added ids
+    unordered_map<int, int> qB;
     vector<grRule *> tempRules;
 
     int isTerminalSym(int a);
 
     vector<int> *copySubSeq(grRule *in, int from, int to);
 
-    int getNewState(int *NiS, int size, int *qB, int C) const;
+    //int getNewState(int *NiS, int size, int *qB, int C) const;
 
     int compareRules(grRule *a, grRule *b);
 
@@ -81,6 +82,8 @@ public:
     void makeFA(int q0, int alpha, int q1);
 
     void printRule(grRule *rule);
+
+    bool isRegurlar;
 };
 
 
