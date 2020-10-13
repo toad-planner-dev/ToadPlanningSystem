@@ -28,8 +28,8 @@ void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
     } else if (alpha->size() > 1) {
         int q = this->dfa->stateID++;
         int X = alpha->at(0);
-        vector<int>* beta= new vector<int>;
-        for(int i = 1; i < alpha->size();i++)
+        vector<int> *beta = new vector<int>;
+        for (int i = 1; i < alpha->size(); i++)
             beta->push_back(alpha->at(i));
         //alpha->erase(alpha->begin());
         makeFA(q0, X, q);
@@ -51,7 +51,7 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
             qB.clear();
             for (int j = 0; j < NiSize[Nl]; j++) {
                 int task = Ni[Nl][j];
-                if(task != A) {
+                if (task != A) {
                     qB[task] = this->dfa->stateID++;
                 }
             }
@@ -109,6 +109,7 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
         }
     }
 }
+
 /*
 int CFGtoFDAtranslator::getNewState(int *NiS, int size, int *qB, int C) const {
     for (int i = 0; i < size; i++) {
@@ -138,21 +139,42 @@ vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
 }
 
 void CFGtoFDAtranslator::sortRules() {
-    int n = numRules;
-    bool swapped = true;
-    while (swapped) {
-        swapped = false;
-        for (int i = 0; i < n - 1; ++i) {
-            if (compareRules(rules[i], rules[i + 1]) > 0) {
-                auto x = rules[i];
-                rules[i] = rules[i + 1];
-                rules[i + 1] = x;
-                swapped = true;
-            }
-        }
-        n--;
+    quick(0, numRules - 1);
+}
+
+void CFGtoFDAtranslator::quick(int l, int r) {
+    if (l < r) {
+        int t = divide(l, r);
+        quick(l, t - 1);
+        quick(t + 1, r);
     }
 }
+
+int CFGtoFDAtranslator::divide(int l, int r) {
+    int i = l;
+    int j = r - 1;
+    grRule *pivot = rules[r];
+    while (i < j) {
+        while ((i < r) && (compareRules(rules[i], pivot) < 0)) {
+            i++;
+        }
+        while ((j > l) && (compareRules(rules[j], pivot) >= 0)) {
+            j--;
+        }
+        if (i < j) {
+            grRule *temp = rules[i];
+            rules[i] = rules[j];
+            rules[j] = temp;
+        }
+    }
+    if (compareRules(rules[i], pivot) > 0) {
+        grRule *temp = rules[i];
+        rules[i] = rules[r];
+        rules[r] = temp;
+    }
+    return i;
+}
+
 
 void CFGtoFDAtranslator::analyseRules() {
     // copy rules
@@ -224,11 +246,11 @@ void CFGtoFDAtranslator::analyseRules() {
 
     // create temp variable
     int maxSize = 0;
-    for(int i = 0; i< NumNis; i++) {
+    for (int i = 0; i < NumNis; i++) {
         maxSize = max(maxSize, NiSize[i]);
     }
 
-    if(printDebug) {
+    if (printDebug) {
         for (int i = 0; i < numRules; i++) {
             printRule(rules[i]);
         }
@@ -271,7 +293,9 @@ void CFGtoFDAtranslator::analyseRules() {
         cout << "- using exact translation." << endl;
         this->isRegurlar = true;
     } else {
-        cout << "- the instance is recursive and self-embedding, i.e. it could not be shown that it is regular. [self-emb]" << endl;
+        cout
+                << "- the instance is recursive and self-embedding, i.e. it could not be shown that it is regular. [self-emb]"
+                << endl;
         cout << "- using approximate translation." << endl;
         this->isRegurlar = false;
     }

@@ -85,6 +85,10 @@ public:
 
     bool isRegurlar;
     bool printDebug = false;
+
+    void quick(int l, int r);
+
+    int divide(int l, int r);
 };
 
 
