@@ -3,6 +3,7 @@
 #include "translation/FiniteAutomaton.h"
 #include "translation/CFGtoFDAtranslator.h"
 #include "ModelWriter.h"
+#include "optimization/RPGReachability.h"
 #include <vector>
 #include <cassert>
 
@@ -90,6 +91,8 @@ int main(int argc, char *argv[]) {
     cout << "- dfa contains " << to2s->dfa->stateID << " states and " << to2s->dfa->numTransitions << " transitions." << endl;
 
     cout << "Performing delete-relaxed forward reachability analysis" << endl;
+    RPGReachability *rpg = new RPGReachability(htn);
+    rpg->computeReachability(to2s->dfa);
 
     cout << "Creating output STRIPS model" << endl;
     string dFile = "/home/dh/Schreibtisch/temp3/sas/domain.pddl";

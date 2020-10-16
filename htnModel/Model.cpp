@@ -15,12 +15,9 @@
 #include <utility>
 #include <cassert>
 #include <list>
-#include <algorithm>
 #include <cerrno>
 #include <cstring>
 #include <map>
-#include <sys/time.h>
-#include "../utils/IntPairHeap.h"
 
 using namespace std;
 
