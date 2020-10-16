@@ -25,7 +25,7 @@ class ModelWriter {
     void writeEpsilonAction(ostream& os, int prec, int add, int del);
 
 public:
-    bool writePDDL = true;
+    bool writePDDL = false;
 
     void write(Model *htn, FiniteAutomaton *automaton, string dFile, string pFile);
 
@@ -36,7 +36,7 @@ public:
 
     FiniteAutomaton *dfa;
 
-    void writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *> &extraStuff);
+    void writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *>* extraStuff);
 };
 
 

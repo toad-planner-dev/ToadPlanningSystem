@@ -25,21 +25,6 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, string dName, st
 }
 
 void ModelWriter::writeDomain(ostream &os) {
-    cout << "- preparing sets of extra precs/effs...";
-    unordered_map<int, set<pair<int, int> *> *> extraStuff;
-
-    for (auto &it: this->dfa->fda) {
-        Pair *p = it.first;
-        set<int> *labels = it.second;
-        for (int l : *labels) {
-            if (extraStuff.find(l) == extraStuff.end()) {
-                set<pair<int, int> *> *s = new set<pair<int, int> *>;
-                extraStuff[l] = s;
-            }
-            extraStuff[l]->insert(new pair<int, int>(p->from, p->to));
-        }
-    }
-    cout << "done" << endl;
 
     /*
      * write domain
@@ -48,20 +33,20 @@ void ModelWriter::writeDomain(ostream &os) {
         os << "(define (domain htn)" << endl;
 
         writePredDef(os, dfa->stateID);
-
+        unordered_map<int, set<pair<int, int> *> *>* extraStuff = dfa->getActionMap();
         for (int i = 0; i < m->numActions; i++) {
-            if (extraStuff.find(i) == extraStuff.end()) {
+            if (extraStuff->find(i) == extraStuff->end()) {
                 cout << "- automaton contains no rule for action " << m->taskNames[i] << endl;
                 continue;
             }
-            for (pair<int, int> *extra : *extraStuff[i]) {
+            for (pair<int, int> *extra : *extraStuff->at(i)) {
                 writeAction(os, i, extra->first, extra->second, extra->first);
             }
             //writeActionCF(os, i, extraStuff[i]);
         }
         //writeEpsilonActionCF(os, extraStuff[-1]);
-        if(extraStuff.find(-1) != extraStuff.end()) {
-            for (pair<int, int> *extra : *extraStuff[-1]) {
+        if(extraStuff->find(-1) != extraStuff->end()) {
+            for (pair<int, int> *extra : *extraStuff->at(-1)) {
                 writeEpsilonAction(os, extra->first, extra->second, extra->first);
             }
         } else {
@@ -69,11 +54,16 @@ void ModelWriter::writeDomain(ostream &os) {
         }
         os << ")" << endl;
     } else {
-        writeSASPlus(os, extraStuff);
+        writeSASPlus(os, dfa->getActionMap());
     }
 }
 
-void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *> &extraStuff) {
+void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *>* extraStuff) {
+    bool isBoolean[m->numVars];
+    for(int i = 0; i < m->numVars; i++) {
+        isBoolean[i] = (m->lastIndex[i] == m->firstIndex[i]);
+    }
+
     os << "begin_version" << endl;
     os << "3" << endl;
     os << "end_version" << endl;
@@ -87,10 +77,16 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
     for (int i = 0; i < m->numVars; i++) {
         os << "begin_variable" << endl;
         os << "var" << i << endl;
-        os << "-1" << endl;
-        os << (m->lastIndex[i] - m->firstIndex[i] + 1) << endl;
-        for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
-            os << "Atom " << su.cleanStr(m->factStrs[j]) << endl;
+        os << "-1" << endl; // axiom layer
+        if(isBoolean[i]) {
+            os << "2" << endl;
+            os << "Atom " << su.cleanStr(m->factStrs[m->firstIndex[i]]) << endl;
+            os << "<none of those>" << endl;
+        } else {
+            os << (m->lastIndex[i] - m->firstIndex[i] + 1) << endl;
+            for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
+                os << "Atom " << su.cleanStr(m->factStrs[j]) << endl;
+            }
         }
         os << "end_variable" << endl;
     }
@@ -126,6 +122,11 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         s0[var] = val - m->firstIndex[var];
     }
     for (int i = 0; i < m->numVars; i++) {
+        if(isBoolean[i] && (s0[i] == -1)) { // it is not set -> set to <none of those>
+            s0[i] = 1;
+        }
+    }
+    for (int i = 0; i < m->numVars; i++) {
         os << s0[i] << endl;
     }
     os << "0" << endl; // initial value of automaton
@@ -147,10 +148,10 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
     // count actions
     int numActions = 0;
     for (int i = -1; i < m->numActions; i++) {
-        if (extraStuff.find(i) == extraStuff.end()) {
+        if (extraStuff->find(i) == extraStuff->end()) {
             continue; // unreachable via automaton
         }
-        numActions += extraStuff[i]->size();
+        numActions += extraStuff->at(i)->size();
     }
     os << numActions << endl;
 
@@ -166,7 +167,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
     vector<int> prevail;
     vector<int> effect;
     for (int i = 0; i < m->numActions; i++) {
-        if (extraStuff.find(i) == extraStuff.end()) {
+        if (extraStuff->find(i) == extraStuff->end()) {
             continue; // unreachable via automaton
         }
         // generate FD's SAS+ format
@@ -182,45 +183,68 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         prevail.clear();
         effect.clear();
         for (int j = 0; j < m->numVars; j++) {
-            if ((varPrec[j] != -1) && (varAdd[j] == -1)) {
-                // prevail constraint
-                prevail.push_back(j);
-                prevail.push_back(varPrec[j]);
-                varPrec[j] = -1;
-            } else if ((varPrec[j] != -1) && (varAdd[j] != -1)) {
-                if (varPrec[j] == varAdd[j]) { // this is actually a prevail constraint
+            if (isBoolean[j]) {
+                if (varPrec[j] != -1) {
+                    if (varAdd[j] != -1) { // prevail constraint
+                        prevail.push_back(j);
+                        prevail.push_back(varPrec[j]);
+                    } else if (varDel[j] != -1) {
+                        // this value is deleted -> need to set it to <none of those>
+                        effect.push_back(0); // not conditional
+                        effect.push_back(j);
+                        assert(varPrec[j] == 0);
+                        effect.push_back(0); // value needed before
+                        effect.push_back(1); // value the variable is set to
+                    }
+                } else { // prec not set
+                    if (varAdd[j] != -1) { // added
+                        effect.push_back(0); // not conditional
+                        effect.push_back(j);
+                        effect.push_back(-1); // value needed before -> do not care
+                        effect.push_back(0); // value the variable is set to
+                    } else if (varDel[j] != -1) {
+                        // this value is deleted -> need to set it to <none of those>
+                        effect.push_back(0); // not conditional
+                        effect.push_back(j);
+                        effect.push_back(-1); // value needed before -> do not care
+                        effect.push_back(1); // value the variable is set to
+                    }
+                }
+            } else { // is sas+ variable
+                if ((varPrec[j] != -1) && (varAdd[j] == -1)) {
+                    // prevail constraint
                     prevail.push_back(j);
                     prevail.push_back(varPrec[j]);
-                } else {
+                } else if ((varPrec[j] != -1) && (varAdd[j] != -1)) {
+                    if (varPrec[j] == varAdd[j]) { // this is actually a prevail constraint
+                        prevail.push_back(j);
+                        prevail.push_back(varPrec[j]);
+                    } else {
+                        effect.push_back(0); // not conditional
+                        effect.push_back(j);
+                        effect.push_back(varPrec[j]); // value needed before
+                        effect.push_back(varAdd[j]); // value the variable is set to
+                    }
+                } else if ((varPrec[j] == -1) && (varAdd[j] != -1)) {
                     effect.push_back(0); // not conditional
                     effect.push_back(j);
-                    effect.push_back(varPrec[j]); // value needed before
+                    effect.push_back(-1); // value needed before
                     effect.push_back(varAdd[j]); // value the variable is set to
-                    if (varDel[j] != varPrec[j])
-                        cout << m->taskNames[i] << endl;
-                    //assert(varDel[j] == varPrec[j]);
                 }
-                varPrec[j] = -1;
-                varAdd[j] = -1;
-                varDel[j] = -1;
-            } else if ((varPrec[j] == -1) && (varAdd[j] != -1)) {
-                effect.push_back(0); // not conditional
-                effect.push_back(j);
-                effect.push_back(-1); // value needed before
-                effect.push_back(varAdd[j]); // value the variable is set to
-                varAdd[j] = -1;
-                cout << "!!!!!!!!!!!!!! It happens!" << endl;
             }
+            varPrec[j] = -1;
+            varAdd[j] = -1;
+            varDel[j] = -1;
         }
         // write everything
-        for (pair<int, int> *extra : *extraStuff[i]) {
+        for (pair<int, int> *extra : *extraStuff->at(i)) {
             os << "begin_operator" << endl;
             os << m->taskNames[i] << endl;
             os << prevail.size() / 2 << endl;
             for (int j = 0; j < prevail.size(); j += 2) {
                 os << prevail[j] << " " << prevail[j + 1] << endl;
             }
-            os << (effect.size() / 4 + 1) << endl; // one is added for the dfa
+            os << ((effect.size() / 4) + 1) << endl; // one is added for the dfa
             for (int j = 0; j < effect.size(); j += 4) {
                 os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << endl;
             }
@@ -230,7 +254,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             os << "end_operator" << endl;
         }
     }
-    for (pair<int, int> *extra : *extraStuff[-1]) {
+    for (pair<int, int> *extra : *extraStuff->at(-1)) {
         os << "begin_operator" << endl;
         os << "epsilon" << endl;
         os << 0 << endl; // prevail constraints
@@ -251,9 +275,6 @@ bool ModelWriter::getSASVal(int *varPrec, int *l, int numVals, int action) const
             var++;
         if (varPrec[var] != -1) {
             result = true;
-            /*cout << "error: two values of same sas+ variable are in precondition/effect of action "
-                 << m->taskNames[action] << endl;
-            exit(-1);*/
         }
         varPrec[var] = val - m->firstIndex[var];
     }

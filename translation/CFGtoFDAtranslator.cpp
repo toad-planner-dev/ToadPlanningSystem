@@ -58,7 +58,7 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
 
             // left recursion
             if (NiRec[Nl] == recLeft) {
-                qB[A] = q0;
+                qB[A] = q1;
                 // iterate rules that decompose some C belonging to the same partition
                 for (int i = 0; i < NiSize[Nl]; i++) {
                     int C = Ni[Nl][i]; // left-hand side
@@ -79,7 +79,7 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
                 int qA = qB[A];
                 dfa->addRule(qA, Epsilon, q1);
             } else { // right or cyclic
-                qB[A] = q1;
+                qB[A] = q0;
                 // iterate rules that decompose some C belonging to the same partition
                 for (int i = 0; i < NiSize[Nl]; i++) {
                     int C = Ni[Nl][i]; // left-hand side

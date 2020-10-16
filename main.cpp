@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
 
     cout << "Performing delete-relaxed forward reachability analysis" << endl;
     RPGReachability *rpg = new RPGReachability(htn);
-    rpg->computeReachability(to2s->dfa);
+    //rpg->computeReachability(to2s->dfa);
 
     cout << "Creating output STRIPS model" << endl;
     string dFile = "/home/dh/Schreibtisch/temp3/sas/domain.pddl";

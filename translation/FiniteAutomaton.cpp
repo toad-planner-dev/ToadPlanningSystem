@@ -43,3 +43,22 @@ void FiniteAutomaton::print(string *pVector, int start, int final) {
     }
     cout << "}" << endl;
 }
+
+unordered_map<int, set<pair<int, int> *> *>* FiniteAutomaton::getActionMap() {
+    if(!actionMapDone) {
+        this->actionMap = new unordered_map<int, set<pair<int, int> *> *>;
+        for (auto &it: this->fda) {
+            Pair *p = it.first;
+            set<int> *labels = it.second;
+            for (int l : *labels) {
+                if (actionMap->find(l) == actionMap->end()) {
+                    set<pair<int, int> *> *s = new set<pair<int, int> *>;
+                    actionMap->insert({l, s});
+                }
+                actionMap->at(l)->insert(new pair<int, int>(p->from, p->to));
+            }
+        }
+        actionMapDone = true;
+    }
+    return this->actionMap;
+}
