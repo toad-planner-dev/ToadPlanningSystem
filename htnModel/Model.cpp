@@ -20,7 +20,7 @@
 #include <cstring>
 #include <map>
 #include <sys/time.h>
-#include "../intDataStructures/IntPairHeap.h"
+#include "../utils/IntPairHeap.h"
 
 using namespace std;
 

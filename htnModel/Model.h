@@ -15,10 +15,10 @@
 #include <forward_list>
 
 #include "ProgressionNetwork.h"
-#include "../intDataStructures/noDelIntSet.h"
-#include "../intDataStructures/FlexIntStack.h"
-#include "../intDataStructures/IntUtil.h"
-#include "../intDataStructures/StringUtil.h"
+#include "../utils/noDelIntSet.h"
+#include "../utils/FlexIntStack.h"
+#include "../utils/IntUtil.h"
+#include "../utils/StringUtil.h"
 
 using namespace std;
 
