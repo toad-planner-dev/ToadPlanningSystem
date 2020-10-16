@@ -6,7 +6,7 @@
 #define TOSTRIPSAPPROXIMATION_MODELWRITER_H
 
 
-#include "Model.h"
+#include "htnModel/Model.h"
 #include "translation/FiniteAutomaton.h"
 
 class ModelWriter {

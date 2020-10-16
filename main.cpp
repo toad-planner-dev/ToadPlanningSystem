@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Model.h"
+#include "htnModel/Model.h"
 #include "translation/FiniteAutomaton.h"
 #include "translation/CFGtoFDAtranslator.h"
 #include "ModelWriter.h"
@@ -88,6 +88,8 @@ int main(int argc, char *argv[]) {
     to2s->makeFA(to2s->dfa->startState, S, to2s->dfa->finalState);
     cout << "(done)" << endl;
     cout << "- dfa contains " << to2s->dfa->stateID << " states and " << to2s->dfa->numTransitions << " transitions." << endl;
+
+    cout << "Performing delete-relaxed forward reachability analysis" << endl;
 
     cout << "Creating output STRIPS model" << endl;
     string dFile = "/home/dh/Schreibtisch/temp3/sas/domain.pddl";

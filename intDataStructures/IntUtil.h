@@ -8,7 +8,7 @@
 #ifndef INTDATASTRUCTURES_INTUTIL_H_
 #define INTDATASTRUCTURES_INTUTIL_H_
 
-#include "../ProgressionNetwork.h"
+#include "../htnModel/ProgressionNetwork.h"
 
 namespace progression {
 

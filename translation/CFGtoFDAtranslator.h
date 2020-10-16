@@ -8,7 +8,7 @@
 #include <list>
 #include <vector>
 #include "FiniteAutomaton.h"
-#include "../Model.h"
+#include "../htnModel/Model.h"
 
 using namespace std;
 
