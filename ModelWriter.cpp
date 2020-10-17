@@ -254,14 +254,16 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             os << "end_operator" << endl;
         }
     }
-    for (pair<int, int> *extra : *extraStuff->at(-1)) {
-        os << "begin_operator" << endl;
-        os << "epsilon" << endl;
-        os << 0 << endl; // prevail constraints
-        os << 1 << endl; // effects
-        os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
-        os << 0 << endl; // action costs, 0 means unicosts
-        os << "end_operator" << endl;
+    if(extraStuff->find(-1) != extraStuff->end()) {
+        for (pair<int, int> *extra : *extraStuff->at(-1)) {
+            os << "begin_operator" << endl;
+            os << "epsilon" << endl;
+            os << 0 << endl; // prevail constraints
+            os << 1 << endl; // effects
+            os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
+            os << 0 << endl; // action costs, 0 means unicosts
+            os << "end_operator" << endl;
+        }
     }
     os << 0 << endl;
 }

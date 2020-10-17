@@ -13,11 +13,11 @@ using namespace std;
 using namespace progression;
 
 int main(int argc, char *argv[]) {
-    std::cout << "Translating Total Order HTN model to STRIPS model." << std::endl;
+    std::cout << "TOAD - Total Order HTN Approximation with DFA." << std::endl;
 
 #ifndef NDEBUG
     cout
-            << "You have compiled the search engine without setting the NDEBUG flag. This will make it slow and should only be done for debug."
+            << "You have compiled TOAD without setting the NDEBUG flag. This will make it slow and should only be done for debug."
             << endl;
 #endif
     string s;
@@ -90,8 +90,8 @@ int main(int argc, char *argv[]) {
     cout << "(done)" << endl;
     cout << "- dfa contains " << to2s->dfa->stateID << " states and " << to2s->dfa->numTransitions << " transitions." << endl;
 
-    cout << "Performing delete-relaxed forward reachability analysis" << endl;
-    RPGReachability *rpg = new RPGReachability(htn);
+    //cout << "Performing delete-relaxed forward reachability analysis" << endl;
+    //RPGReachability *rpg = new RPGReachability(htn);
     //rpg->computeReachability(to2s->dfa);
 
     cout << "Creating output STRIPS model" << endl;
