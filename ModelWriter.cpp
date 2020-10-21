@@ -18,10 +18,12 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, string dName, st
     writeDomain(dfile);
     dfile.close();
 
-    ofstream pfile;
-    pfile.open(pName);
-    writeProblem(pfile, 0, 1);
-    pfile.close();
+    if(this->writePDDL) {
+        ofstream pfile;
+        pfile.open(pName);
+        writeProblem(pfile, 0, 1);
+        pfile.close();
+    }
 }
 
 void ModelWriter::writeDomain(ostream &os) {
@@ -50,7 +52,7 @@ void ModelWriter::writeDomain(ostream &os) {
                 writeEpsilonAction(os, extra->first, extra->second, extra->first);
             }
         } else {
-            cout << "- automaton contains no epsilon transitions" << endl;
+            cout << "- automaton contains no epsilon transitions." << endl;
         }
         os << ")" << endl;
     } else {

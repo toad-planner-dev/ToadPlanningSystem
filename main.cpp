@@ -6,6 +6,7 @@
 #include "optimization/RPGReachability.h"
 #include <vector>
 #include <cassert>
+#include <sys/time.h>
 
 vector<int> *mToRule(const Model *htn, int iM);
 
@@ -21,6 +22,8 @@ int main(int argc, char *argv[]) {
             << endl;
 #endif
     string s;
+    timeval tp;
+
     int seed = 42;
     if (argc == 1) {
         cout << "No file name passed. Reading input from stdin";
@@ -29,13 +32,16 @@ int main(int argc, char *argv[]) {
         s = argv[1];
         if (argc > 2) seed = atoi(argv[2]);
     }
-    cout << "Random seed: " << seed << endl;
+    cout << "Random seed: " << seed << " [rseed=" << seed << "]" << endl;
     srand(seed);
 
 
 /*
  * Read model
  */
+    gettimeofday(&tp, NULL);
+    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    long startTotal = startT;
     cout << "Reading HTN model from file \"" << s << "\" ... " << endl;
     Model *htn = new Model();
     htn->filename = s;
@@ -43,7 +49,11 @@ int main(int argc, char *argv[]) {
     //assert(htn->isHtnModel);
 
     htn->calcSCCs();
-    //htn->calcSCCGraph();
+    gettimeofday(&tp, NULL);
+    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
+    startT = endT;
+
 /*
  * Building grammar
  */
@@ -83,23 +93,36 @@ int main(int argc, char *argv[]) {
 
     cout << "Creating DFA" << endl;
     cout << "- starting symbol: " << S << endl;
-    cout << "- starting dfa...";
+    cout << "- building dfa..." << endl;
     to2s->dfa->startState = to2s->dfa->stateID++;
     to2s->dfa->finalState = to2s->dfa->stateID++;
     to2s->makeFA(to2s->dfa->startState, S, to2s->dfa->finalState);
-    cout << "(done)" << endl;
-    cout << "- dfa contains " << to2s->dfa->stateID << " states and " << to2s->dfa->numTransitions << " transitions." << endl;
+    cout << "- dfa states " << to2s->dfa->stateID << ". [dfaSraw=" << to2s->dfa->stateID << "]" << endl;
+    cout << "- dfa transitions " << to2s->dfa->numTransitions << ". [dfaTraw=" << to2s->dfa->numTransitions << "]" << endl;
+    gettimeofday(&tp, NULL);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timeBuildingDFA=" << (endT - startT) << "]" << endl;
+    startT = endT;
 
     //cout << "Performing delete-relaxed forward reachability analysis" << endl;
     //RPGReachability *rpg = new RPGReachability(htn);
     //rpg->computeReachability(to2s->dfa);
 
     cout << "Creating output STRIPS model" << endl;
-    string dFile = "/home/dh/Schreibtisch/temp3/sas/domain.pddl";
-    string pFile ="/home/dh/Schreibtisch/temp3/sas/problem.pddl";
+    string dFile = "problem.sas";
+    string pFile ="unused.pddl";
 
     ModelWriter mw;
+    if(mw.writePDDL)
+        cout << "- Writing PDDL representation. [writer=PDDL]" << endl;
+    else
+        cout << "- Writing FD's SAS+ representation. [writer=SAS]" << endl;
     mw.write(htn, to2s->dfa, dFile, pFile);
+    gettimeofday(&tp, NULL);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timeWritingModel=" << (endT - startT) << "]" << endl;
+    cout << "- [timeTotal=" << (endT - startTotal) << "]" << endl;
+
     cout << "Finished!" << endl;
     //mw.dfa->print(htn->taskNames, 0, 1);
 

@@ -2243,11 +2243,11 @@ int* Model::readIntList(string s, int& size) {
 
 void Model::printSummary() {
 	cout << "- State has " << numStateBits << " bits divided into " << numVars
-			<< " mutex groups." << endl;
-	cout << "- Domain contains " << numActions << " actions." << endl;
+			<< " mutex groups. [statebits=" << numStateBits << "] [statevars=" << numVars << "]" << endl;
+	cout << "- Domain contains " << numActions << " actions. [numActions=" << numActions << "]" << endl;
 	if (isHtnModel) {
-		cout << "- Domain contains " << numTasks << " tasks." << endl;
-		cout << "- Domain contains " << numMethods << " methods." << endl;
+		cout << "- Domain contains " << numTasks << " tasks. [numTasks=" << numTasks << "]" << endl;
+		cout << "- Domain contains " << numMethods << " methods. [numMethods=" << numMethods << "]" << endl;
 	}
 	cout << "- The initial state contains " << s0Size << " set bits." << endl;
 	if (isHtnModel) {
@@ -2358,7 +2358,7 @@ void Model::calcSCCs() {
 		if (sccSize[j] == 2)
 			numCyclicSccs++;
 	}
-	cout << "- Number of SCCs: " << numSCCs << endl;
+	cout << "- number of SCCs: " << numSCCs << " [numSCCs=" << numSCCs << "]" << endl;
 
 	// generate inverse mapping
 	sccToTasks = new int*[numSCCs];
@@ -2403,6 +2403,8 @@ void Model::calcSCCs() {
 			j++;
 		}
 	}
+	cout << "- number of cyclic SCCs: " << numCyclicSccs << ". [cyclicSCCs=" << numCyclicSccs << "]" << endl;
+	cout << "- self-loops: " << selfLoopSccs.size() << ". [sccSelfLoops=" << selfLoopSccs.size() << "]" << endl;
 	for (std::set<int>::iterator it = selfLoopSccs.begin(); it != selfLoopSccs.end(); it++) {
 		sccsCyclic[j] = *it;
 		j++;
