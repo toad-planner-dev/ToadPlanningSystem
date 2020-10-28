@@ -90,6 +90,9 @@ int main(int argc, char *argv[]) {
     cout << "Analysing rules" << endl;
     to2s->analyseRules();
     int S = htn->initialTask;
+    if (!to2s->isRegurlar) {
+        return -7;
+    }
 
     cout << "Creating DFA" << endl;
     cout << "- starting symbol: " << S << endl;

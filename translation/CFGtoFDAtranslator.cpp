@@ -269,27 +269,27 @@ void CFGtoFDAtranslator::analyseRules() {
     bool containsCyclic = false;
     bool isRegular = true;
     for (int i = 0; i < NumNis; i++) {
-        cout << "  - N" << i << " ";
+        //cout << "  - N" << i << " ";
         if (NiRec[i] == recRight) {
-            cout << "right recursive";
+            //cout << "right recursive";
             containsRR = true;
         } else if (NiRec[i] == recLeft) {
-            cout << "left recursive";
+            //cout << "left recursive";
             containsLR = true;
         } else if (NiRec[i] == recSelf) {
-            cout << "self recursive";
+            //cout << "self recursive";
             containsSelf = true;
             isRegular = false;
         } else if (NiRec[i] == recCycle) {
-            cout << "cyclic";
+            //cout << "cyclic";
             containsCyclic = true;
         } else {
-            cout << "???";
+            //cout << "???";
         }
         for (int j = 0; j < NiSize[i]; j++) {
-            cout << " " << Ni[i][j];
+            //cout << " " << Ni[i][j];
         }
-        cout << endl;
+        //cout << endl;
     }
 
     cout << "- recursive structure:";
