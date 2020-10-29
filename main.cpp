@@ -4,6 +4,7 @@
 #include "translation/CFGtoFDAtranslator.h"
 #include "ModelWriter.h"
 #include "optimization/RPGReachability.h"
+#include "verification/GroundVerifier.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -30,7 +31,7 @@ int main(int argc, char *argv[]) {
         s = "stdin";
     } else {
         s = argv[1];
-        if (argc > 2) seed = atoi(argv[2]);
+        //if (argc > 2) seed = atoi(argv[2]);
     }
     cout << "Random seed: " << seed << " [rseed=" << seed << "]" << endl;
     srand(seed);
@@ -54,6 +55,13 @@ int main(int argc, char *argv[]) {
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
     startT = endT;
 
+    bool verify = true;
+    if (verify) {
+      GroundVerifier v;
+      string sasPlan = argv[2];
+      v.verify(htn, sasPlan);
+      exit(0);
+    }
 /*
  * Building grammar
  */

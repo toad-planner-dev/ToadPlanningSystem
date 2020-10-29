@@ -6,8 +6,14 @@
 #define TOSTRIPSAPPROXIMATION_GROUNDVERIFIER_H
 
 
+#include "../htnModel/Model.h"
+
 class GroundVerifier {
 
+public:
+    void verify(progression::Model *htn, string sasPlan);
+
+    void writeAction(Model *pModel, ofstream& ofstream, int iAction, int pFrom, int last1);
 };
 
 
