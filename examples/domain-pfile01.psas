@@ -1,0 +1,185 @@
+;; #state features
+11
++at[package_0,city_loc_0]
++at[package_0,city_loc_1]
++in[package_0,truck_0]
++at[truck_0,city_loc_0]
++at[truck_0,city_loc_2]
++at[truck_0,city_loc_1]
++at[package_1,city_loc_2]
++at[package_1,city_loc_1]
++in[package_1,truck_0]
++capacity[truck_0,capacity_0]
++capacity[truck_0,capacity_1]
+
+;; Mutex Groups
+4
+0 2 var1
+3 5 var2
+6 8 var3
+9 10 var4
+
+;; further strict Mutex Groups
+0
+
+;; further non strict Mutex Groups
+3
+10 2 -1
+10 8 -1
+2 8 -1
+
+;; known invariants
+0
+
+;; Actions
+13
+1
+8 4 9 -1
+0 10  0 6  -1
+0 9  0 8  -1
+1
+7 10 5 -1
+0 9  0 8  -1
+0 10  0 7  -1
+1
+5 -1
+0 4  -1
+0 5  -1
+1
+4 -1
+-1
+-1
+1
+4 -1
+0 5  -1
+0 4  -1
+1
+3 -1
+0 5  -1
+0 3  -1
+1
+5 -1
+-1
+-1
+1
+5 -1
+0 3  -1
+0 5  -1
+1
+3 -1
+-1
+-1
+1
+6 10 4 -1
+0 9  0 8  -1
+0 10  0 6  -1
+1
+3 2 9 -1
+0 10  0 0  -1
+0 9  0 2  -1
+1
+1 10 5 -1
+0 9  0 2  -1
+0 10  0 1  -1
+1
+0 10 3 -1
+0 9  0 2  -1
+0 10  0 0  -1
+
+;; initial state
+1 4 7 10 -1
+
+;; goal
+-1
+
+;; tasks (primitive and abstract)
+19
+0 drop[truck_0,city_loc_2,package_1,capacity_0,capacity_1]
+0 pick_up[truck_0,city_loc_1,package_1,capacity_0,capacity_1]
+0 drive[truck_0,city_loc_1,city_loc_2]
+0 noop[truck_0,city_loc_2]
+0 drive[truck_0,city_loc_2,city_loc_1]
+0 drive[truck_0,city_loc_0,city_loc_1]
+0 noop[truck_0,city_loc_1]
+0 drive[truck_0,city_loc_1,city_loc_0]
+0 noop[truck_0,city_loc_0]
+0 pick_up[truck_0,city_loc_2,package_1,capacity_0,capacity_1]
+0 drop[truck_0,city_loc_0,package_0,capacity_0,capacity_1]
+0 pick_up[truck_0,city_loc_1,package_0,capacity_0,capacity_1]
+0 pick_up[truck_0,city_loc_0,package_0,capacity_0,capacity_1]
+1 __top[]
+1 deliver[package_1,city_loc_2]
+1 get_to[truck_0,city_loc_2]
+1 get_to[truck_0,city_loc_1]
+1 get_to[truck_0,city_loc_0]
+1 deliver[package_0,city_loc_0]
+
+;; initial abstract task
+13
+
+;; methods
+16
+__top_method
+13
+18 14 -1
+0 1 -1
+<<m_deliver_ordering_0;unload[truck_0,city_loc_2,package_1];m_unload_ordering_0;3;0,1,2,-1>;load[truck_0,city_loc_1,package_1];m_load_ordering_0;1;0,-1,2,3>
+14
+16 1 15 0 -1
+1 2 2 3 0 1 -1
+m_drive_to_ordering_0
+15
+2 -1
+-1
+m_i_am_there_ordering_0
+15
+3 -1
+-1
+m_drive_to_via_ordering_0
+15
+16 2 -1
+0 1 -1
+m_drive_to_ordering_0
+16
+4 -1
+-1
+m_drive_to_ordering_0
+16
+5 -1
+-1
+m_i_am_there_ordering_0
+16
+6 -1
+-1
+m_drive_to_via_ordering_0
+16
+17 5 -1
+0 1 -1
+m_drive_to_ordering_0
+17
+7 -1
+-1
+m_i_am_there_ordering_0
+17
+8 -1
+-1
+m_drive_to_via_ordering_0
+17
+16 7 -1
+0 1 -1
+m_drive_to_via_ordering_0
+16
+15 4 -1
+0 1 -1
+<<m_deliver_ordering_0;unload[truck_0,city_loc_2,package_1];m_unload_ordering_0;3;0,1,2,-1>;load[truck_0,city_loc_2,package_1];m_load_ordering_0;1;0,-1,2,3>
+14
+15 9 15 0 -1
+1 2 2 3 0 1 -1
+<<m_deliver_ordering_0;unload[truck_0,city_loc_0,package_0];m_unload_ordering_0;3;0,1,2,-1>;load[truck_0,city_loc_1,package_0];m_load_ordering_0;1;0,-1,2,3>
+18
+16 11 17 10 -1
+1 2 2 3 0 1 -1
+<<m_deliver_ordering_0;unload[truck_0,city_loc_0,package_0];m_unload_ordering_0;3;0,1,2,-1>;load[truck_0,city_loc_0,package_0];m_load_ordering_0;1;0,-1,2,3>
+18
+17 12 17 10 -1
+1 2 2 3 0 1 -1
