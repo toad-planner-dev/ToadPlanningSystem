@@ -30,7 +30,7 @@ public:
     void writeActionCF(ostream& ostream, int action, set<pair<int, int>*>* cfSet);
     void writeEpsilonActionCF(ostream& os,  set<pair<int, int>*>* cfSet);
 
-    bool getSASVal(int *varPrec,int* l, int numVals, int action) const;
+    bool getSASVal(int *store, int* somelist, int length) const;
 
     FiniteAutomaton *dfa;
 

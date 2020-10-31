@@ -7,6 +7,8 @@
 #include <vector>
 
 void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
+    if ((alpha == -1) && (q0 == q1))
+        return;
     Pair *p = new Pair(q0, q1);
     set<int> *labels;
     if (this->fda.find(p) == fda.end()) {

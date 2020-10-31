@@ -33,6 +33,10 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, 
 }
 
 void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *>* extraStuff) {
+    IntUtil iu;
+    iu.sort(m->gList, 0, m->gSize -1);
+    iu.sort(m->s0List, 0, m->s0Size -1);
+
     bool isBoolean[m->numVars];
     for(int i = 0; i < m->numVars; i++) {
         isBoolean[i] = (m->lastIndex[i] == m->firstIndex[i]);
@@ -141,90 +145,134 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
     vector<int> prevail;
     vector<int> effect;
     for (int i = 0; i < m->numActions; i++) {
+        //cout << m->taskNames[i] << endl;
+
         if (extraStuff->find(i) == extraStuff->end()) {
             continue; // unreachable via automaton
         }
         // generate FD's SAS+ format
-        if (getSASVal(varPrec, m->precLists[i], m->numPrecs[i], i)) {
+        if (getSASVal(varPrec, m->precLists[i], m->numPrecs[i])) {
             cout << "error: two values of same sas+ variable are in precondition of action " << m->taskNames[i] << endl;
             exit(-1);
         }
-        if (getSASVal(varAdd, m->addLists[i], m->numAdds[i], i)){
+        if (getSASVal(varAdd, m->addLists[i], m->numAdds[i])){
             cout << "error: two values of same sas+ variable are in effect of action " << m->taskNames[i] << endl;
             exit(-1);
         }
-        getSASVal(varDel, m->delLists[i], m->numDels[i], i);
+        if (getSASVal(varDel, m->delLists[i], m->numDels[i])) {
+            cout << "warning: two values of same sas+ variable are in del effect of action " << m->taskNames[i] << endl;
+        }
+        /*
+        for(int v = 0; v < m->numVars; v++) {
+            if ((varPrec[v] != -1)||(varDel[v] != -1)||(varDel[v] != -1)) {
+                cout << "- v" << v << " (" << varPrec[v] << " ";
+                if (varPrec[v] != -1)
+                    cout << m->factStrs[m->firstIndex[v] + varPrec[v]];
+                cout << ", " << varAdd[v] << " ";
+                if (varAdd[v] != -1)
+                    cout << m->factStrs[m->firstIndex[v] + varAdd[v]];
+                cout << ", " << varDel[v] << " ";
+                if (varDel[v] != -1)
+                    cout << m->factStrs[m->firstIndex[v] + varDel[v]];
+                cout << ")" << endl;
+            }
+        }
+         */
         prevail.clear();
         effect.clear();
-        for (int j = 0; j < m->numVars; j++) {
-            if (isBoolean[j]) {
-                if (varPrec[j] != -1) {
-                    if (varAdd[j] != -1) { // prevail constraint
-                        prevail.push_back(j);
-                        prevail.push_back(varPrec[j]);
-                    } else if (varDel[j] != -1) {
+        for (int v = 0; v < m->numVars; v++) {
+            if (isBoolean[v]) {
+                if (varPrec[v] != -1) {
+                    if (varAdd[v] != -1) { // prevail constraint
+                        assert(varPrec[v] == varAdd[v]);
+                        prevail.push_back(v);
+                        prevail.push_back(varPrec[v]);
+                    } else if (varDel[v] != -1) {
                         // this value is deleted -> need to set it to <none of those>
                         effect.push_back(0); // not conditional
-                        effect.push_back(j);
-                        assert(varPrec[j] == 0);
+                        effect.push_back(v);
+                        assert(varPrec[v] == 0);
                         effect.push_back(0); // value needed before
                         effect.push_back(1); // value the variable is set to
+                    } else { // prevail constraint
+                        assert (varAdd[v] == -1);
+                        assert (varDel[v] == -1);
+                        prevail.push_back(v);
+                        prevail.push_back(varPrec[v]);
                     }
                 } else { // prec not set
-                    if (varAdd[j] != -1) { // added
+                    if (varAdd[v] != -1) { // added
                         effect.push_back(0); // not conditional
-                        effect.push_back(j);
+                        effect.push_back(v);
                         effect.push_back(-1); // value needed before -> do not care
+                        assert(varAdd[v] == 0);
                         effect.push_back(0); // value the variable is set to
-                    } else if (varDel[j] != -1) {
+                    } else if (varDel[v] != -1) {
                         // this value is deleted -> need to set it to <none of those>
                         effect.push_back(0); // not conditional
-                        effect.push_back(j);
+                        effect.push_back(v);
                         effect.push_back(-1); // value needed before -> do not care
                         effect.push_back(1); // value the variable is set to
                     }
                 }
             } else { // is sas+ variable
-                if ((varPrec[j] != -1) && (varAdd[j] == -1)) {
+                if ((varPrec[v] != -1) && (varAdd[v] == -1)) {
                     // prevail constraint
-                    prevail.push_back(j);
-                    prevail.push_back(varPrec[j]);
-                } else if ((varPrec[j] != -1) && (varAdd[j] != -1)) {
-                    if (varPrec[j] == varAdd[j]) { // this is actually a prevail constraint
-                        prevail.push_back(j);
-                        prevail.push_back(varPrec[j]);
+                    prevail.push_back(v);
+                    prevail.push_back(varPrec[v]);
+                } else if ((varPrec[v] != -1) && (varAdd[v] != -1)) {
+                    if (varPrec[v] == varAdd[v]) { // this is actually a prevail constraint
+                        prevail.push_back(v);
+                        prevail.push_back(varPrec[v]);
                     } else {
                         effect.push_back(0); // not conditional
-                        effect.push_back(j);
-                        effect.push_back(varPrec[j]); // value needed before
-                        effect.push_back(varAdd[j]); // value the variable is set to
+                        effect.push_back(v);
+                        effect.push_back(varPrec[v]); // value needed before
+                        effect.push_back(varAdd[v]); // value the variable is set to
                     }
-                } else if ((varPrec[j] == -1) && (varAdd[j] != -1)) {
+                } else if ((varPrec[v] == -1) && (varAdd[v] != -1)) {
                     effect.push_back(0); // not conditional
-                    effect.push_back(j);
+                    effect.push_back(v);
                     effect.push_back(-1); // value needed before
-                    effect.push_back(varAdd[j]); // value the variable is set to
+                    effect.push_back(varAdd[v]); // value the variable is set to
+                } else if ((varPrec[v] != -1)||(varDel[v] != -1)||(varDel[v] != -1)){
+                    cout << "unexpected sas+ values in action:" << endl;
+                    cout << "prec " << varPrec[v] << endl;
+                    cout << "add  " << varAdd[v] << endl;
+                    cout << "del  " << varDel[v] << endl;
+                    exit(-1);
                 }
             }
-            varPrec[j] = -1;
-            varAdd[j] = -1;
-            varDel[j] = -1;
+            varPrec[v] = -1;
+            varAdd[v] = -1;
+            varDel[v] = -1;
         }
         // write everything
         for (pair<int, int> *extra : *extraStuff->at(i)) {
+            int numPrevail = prevail.size() / 2;
+            int numEffect = (effect.size() / 4);
+            if(extra->first != extra->second) {
+                numEffect++;
+            } else {
+                numPrevail++;
+            }
             os << "begin_operator" << endl;
             os << m->taskNames[i] << endl;
-            os << prevail.size() / 2 << endl;
+            os << numPrevail << endl;
             for (int j = 0; j < prevail.size(); j += 2) {
                 os << prevail[j] << " " << prevail[j + 1] << endl;
             }
-            os << ((effect.size() / 4) + 1) << endl; // one is added for the dfa
+            if (extra->first == extra->second) { // dfa prec
+                os << m->numVars << " " << extra->first << endl;
+            }
+            os << numEffect << endl; // one is added for the dfa
             for (int j = 0; j < effect.size(); j += 4) {
                 os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << endl;
             }
-            // dfa effect
-            os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
-            os << 0 << endl; // action costs, 0 means unicosts
+            if (extra->first != extra->second) { // dfa effect
+                os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
+            }
+            os << 1 << endl; // action costs, 0 means unicosts
             os << "end_operator" << endl;
         }
     }
@@ -235,7 +283,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             os << 0 << endl; // prevail constraints
             os << 1 << endl; // effects
             os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
-            os << 0 << endl; // action costs, 0 means unicosts
+            os << 1 << endl; // action costs, 0 means unicosts
             os << "end_operator" << endl;
         }
     }
@@ -268,17 +316,17 @@ void ModelWriter::writeDomain(ostream &os) {
     os << ")" << endl;
 }
 
-bool ModelWriter::getSASVal(int *varPrec, int *l, int numVals, int action) const {
+bool ModelWriter::getSASVal(int *store, int *somelist, int length) const {
     bool result = false;
-    for (int j = 0; j < numVals; j++) {
-        int val = l[j];
+    for (int j = 0; j < length; j++) {
+        int val = somelist[j];
         int var = 0;
         while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
             var++;
-        if (varPrec[var] != -1) {
+        if (store[var] != -1) {
             result = true;
         }
-        varPrec[var] = val - m->firstIndex[var];
+        store[var] = val - m->firstIndex[var];
     }
     return result;
 }

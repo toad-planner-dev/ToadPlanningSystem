@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
 
     cout << "Creating output STRIPS model" << endl;
     string dFile = "domain.pddl";
-    string pFile = "problem.pddl";
+    string pFile = "problem.sas";
 
     ModelWriter mw;
     bool writePDDL = false; // PDDL or SAS+
