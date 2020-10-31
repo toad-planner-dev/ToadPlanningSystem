@@ -25,21 +25,36 @@ int main(int argc, char *argv[]) {
     string s;
     timeval tp;
 
+    bool verify = false;
     int seed = 42;
-    if (argc == 1) {
-        cout << "No file name passed. Reading input from stdin";
-        s = "stdin";
+    bool printhelp = false;
+    if (argc < 2) {
+        printhelp = true;
     } else {
-        s = argv[1];
-        //if (argc > 2) seed = atoi(argv[2]);
+        string str = argv[1];
+        if (str == "-v") {
+            verify = true;
+            s = argv[2];
+            if (argc != 4) printhelp = true;
+        } else {
+            s = argv[1];
+            if (argc == 3) seed = atoi(argv[2]);
+        }
     }
+
+    if (printhelp){
+        cout << "usage:" << endl;
+        cout << "toad pandagrounding [seed]" << endl;
+        cout << "toad -v pandagrounding sasplan" << endl;
+        exit(-1);
+    }
+
     cout << "Random seed: " << seed << " [rseed=" << seed << "]" << endl;
     srand(seed);
 
-
-/*
- * Read model
- */
+    /*
+    * Read model
+    */
     gettimeofday(&tp, NULL);
     long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     long startTotal = startT;
@@ -55,16 +70,23 @@ int main(int argc, char *argv[]) {
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
     startT = endT;
 
-    bool verify = true;
     if (verify) {
-      GroundVerifier v;
-      string sasPlan = argv[2];
-      v.verify(htn, sasPlan);
-      exit(0);
+        /*
+        * Creating verify problem
+        */
+        cout << "Creating verify problem." << endl;
+        GroundVerifier v;
+        string sasPlan = argv[3];
+        v.verify(htn, sasPlan);
+        gettimeofday(&tp, NULL);
+        long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeCreatingVerifyproblem=" << (endT - startT) << "]" << endl;
+        exit(0);
     }
-/*
- * Building grammar
- */
+
+    /*
+    * Building grammar
+    */
     cout << "Starting translation" << endl;
     CFGtoFDAtranslator *to2s = new CFGtoFDAtranslator();
     to2s->numSymbols = htn->numTasks;
@@ -73,9 +95,9 @@ int main(int argc, char *argv[]) {
     // initialize Ni sets
     to2s->NumNis = htn->numCyclicSccs;
     to2s->NiSize = new int[htn->numCyclicSccs];
-    to2s->Ni = new int*[htn->numCyclicSccs];
+    to2s->Ni = new int *[htn->numCyclicSccs];
     to2s->SymToNi = new int[to2s->numSymbols];
-    for(int i = 0; i < to2s->numSymbols; i++) {
+    for (int i = 0; i < to2s->numSymbols; i++) {
         to2s->SymToNi[i] = -1; // init as non-recursive
     }
 
@@ -109,7 +131,8 @@ int main(int argc, char *argv[]) {
     to2s->dfa->finalState = to2s->dfa->stateID++;
     to2s->makeFA(to2s->dfa->startState, S, to2s->dfa->finalState);
     cout << "- dfa states " << to2s->dfa->stateID << ". [dfaSraw=" << to2s->dfa->stateID << "]" << endl;
-    cout << "- dfa transitions " << to2s->dfa->numTransitions << ". [dfaTraw=" << to2s->dfa->numTransitions << "]" << endl;
+    cout << "- dfa transitions " << to2s->dfa->numTransitions << ". [dfaTraw=" << to2s->dfa->numTransitions << "]"
+         << endl;
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timeBuildingDFA=" << (endT - startT) << "]" << endl;
@@ -120,15 +143,16 @@ int main(int argc, char *argv[]) {
     //rpg->computeReachability(to2s->dfa);
 
     cout << "Creating output STRIPS model" << endl;
-    string dFile = "problem.sas";
-    string pFile ="unused.pddl";
+    string dFile = "domain.pddl";
+    string pFile = "problem.pddl";
 
     ModelWriter mw;
-    if(mw.writePDDL)
+    bool writePDDL = false; // PDDL or SAS+
+    if (writePDDL)
         cout << "- Writing PDDL representation. [writer=PDDL]" << endl;
     else
         cout << "- Writing FD's SAS+ representation. [writer=SAS]" << endl;
-    mw.write(htn, to2s->dfa, dFile, pFile);
+    mw.write(htn, to2s->dfa, writePDDL, dFile, pFile);
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timeWritingModel=" << (endT - startT) << "]" << endl;
@@ -143,14 +167,14 @@ int main(int argc, char *argv[]) {
 
 vector<int> *mToRule(const Model *htn, int iM) {
     bool printDebug = false;
-    if(printDebug) {
+    if (printDebug) {
         cout << "----" << endl;
         cout << "d: " << htn->decomposedTask[iM] << " " << htn->taskNames[htn->decomposedTask[iM]] << endl;
         for (int i = 0; i < htn->numSubTasks[iM]; i++) {
             int st = htn->subTasks[iM][i];
             cout << i << " " << st << " " << htn->taskNames[st] << endl;
         }
-        for(int i = 0; i < htn->numOrderings[iM]; i+= 2) {
+        for (int i = 0; i < htn->numOrderings[iM]; i += 2) {
             cout << htn->ordering[iM][i] << " < " << htn->ordering[iM][i + 1] << endl;
         }
     }
@@ -193,7 +217,7 @@ vector<int> *mToRule(const Model *htn, int iM) {
         rule->push_back(st);
     }
 
-    if(printDebug) {
+    if (printDebug) {
         cout << rule->at(0) << " -> ";
         for (int i = 1; i < rule->size(); i++)
             cout << rule->at(i) << " ";

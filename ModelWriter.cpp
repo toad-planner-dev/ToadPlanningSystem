@@ -9,54 +9,26 @@
 
 using namespace std;
 
-void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, string dName, string pName) {
+void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, string dName, string pName) {
     this->m = htn;
     this->dfa = automaton;
 
-    ofstream dfile;
-    dfile.open(dName);
-    writeDomain(dfile);
-    dfile.close();
+    if(writePDDL) {
+        ofstream dfile;
+        dfile.open(dName);
+        writeDomain(dfile);
+        dfile.close();
 
-    if(this->writePDDL) {
+        writeDomain(dfile);
         ofstream pfile;
         pfile.open(pName);
         writeProblem(pfile, 0, 1);
         pfile.close();
-    }
-}
-
-void ModelWriter::writeDomain(ostream &os) {
-
-    /*
-     * write domain
-     */
-    if (writePDDL) {
-        os << "(define (domain htn)" << endl;
-
-        writePredDef(os, dfa->stateID);
-        unordered_map<int, set<pair<int, int> *> *>* extraStuff = dfa->getActionMap();
-        for (int i = 0; i < m->numActions; i++) {
-            if (extraStuff->find(i) == extraStuff->end()) {
-                cout << "- automaton contains no rule for action " << m->taskNames[i] << endl;
-                continue;
-            }
-            for (pair<int, int> *extra : *extraStuff->at(i)) {
-                writeAction(os, i, extra->first, extra->second, extra->first);
-            }
-            //writeActionCF(os, i, extraStuff[i]);
-        }
-        //writeEpsilonActionCF(os, extraStuff[-1]);
-        if(extraStuff->find(-1) != extraStuff->end()) {
-            for (pair<int, int> *extra : *extraStuff->at(-1)) {
-                writeEpsilonAction(os, extra->first, extra->second, extra->first);
-            }
-        } else {
-            cout << "- automaton contains no epsilon transitions." << endl;
-        }
-        os << ")" << endl;
-    } else {
+    } else { // SAS+
+        ofstream os;
+        os.open(pName);
         writeSASPlus(os, dfa->getActionMap());
+        os.close();
     }
 }
 
@@ -268,6 +240,32 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         }
     }
     os << 0 << endl;
+}
+
+void ModelWriter::writeDomain(ostream &os) {
+    os << "(define (domain htn)" << endl;
+
+    writePredDef(os, dfa->stateID);
+    unordered_map<int, set<pair<int, int> *> *>* extraStuff = dfa->getActionMap();
+    for (int i = 0; i < m->numActions; i++) {
+        if (extraStuff->find(i) == extraStuff->end()) {
+            cout << "- automaton contains no rule for action " << m->taskNames[i] << endl;
+            continue;
+        }
+        for (pair<int, int> *extra : *extraStuff->at(i)) {
+            writeAction(os, i, extra->first, extra->second, extra->first);
+        }
+        //writeActionCF(os, i, extraStuff[i]);
+    }
+    //writeEpsilonActionCF(os, extraStuff[-1]);
+    if(extraStuff->find(-1) != extraStuff->end()) {
+        for (pair<int, int> *extra : *extraStuff->at(-1)) {
+            writeEpsilonAction(os, extra->first, extra->second, extra->first);
+        }
+    } else {
+        cout << "- automaton contains no epsilon transitions." << endl;
+    }
+    os << ")" << endl;
 }
 
 bool ModelWriter::getSASVal(int *varPrec, int *l, int numVals, int action) const {
