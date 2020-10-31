@@ -10,6 +10,16 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     //
     // read plan
     //
+
+    for(int i = 0; i < htn->numTasks; i++) {
+        for(int j = i + 1; j < htn->numTasks; j++) {
+            if(htn->taskNames[i] == htn->taskNames[j]) {
+                cout << "Found two actions with same name" << endl;
+                exit(-1);
+            }
+        }
+    }
+
     std::ifstream fIn(sasPlan);
     std::string line;
     vector<int> prefix;
