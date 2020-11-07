@@ -5,6 +5,7 @@
 #include <fstream>
 #include <map>
 #include "GroundVerifier.h"
+#include <cassert>
 
 void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     //
@@ -24,12 +25,13 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     std::string line;
     vector<int> prefix;
     set<int> distinctActions;
+    StringUtil su;
     while (std::getline(fIn, line)) {
         if (line.rfind(';') == 0) continue;
         line = line.substr(1, line.length() - 2);
         bool found = false;
         for (int i = 0; i < htn->numTasks; i++) {
-            if (line.compare(htn->taskNames[i]) == 0) {
+            if (line.compare(su.cleanStr(htn->taskNames[i])) == 0) {
                 prefix.push_back(i);
                 distinctActions.insert(i);
                 found = true;
@@ -43,34 +45,68 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     }
     fIn.close();
 
+    set<int>* unreachableT = new set<int>;
+    set<int>* unreachableM = new set<int>;
+    set<int>* newlyUnrT = new set<int>;
+    set<int>* newlyUnrM = new set<int>;
+    for(int a = 0; a < htn->numActions; a++) {
+        if (distinctActions.find(a) == distinctActions.end()) {
+            newlyUnrT->insert(a);
+            unreachableT->insert(a);
+        }
+    }
+    while(!newlyUnrT->empty()) {
+        for (int t : *newlyUnrT) {
+            for (int mi = 0; mi < htn->stToMethodNum[t]; mi++) {
+                int m = htn->stToMethod[t][mi];
+                if (unreachableM->find(m) == unreachableM->end()) {
+                    newlyUnrM->insert(m);
+                    unreachableM->insert(m);
+                }
+            }
+        }
+        newlyUnrT->clear();
+        for(int m : *newlyUnrM) {
+            int t = htn->decomposedTask[m];
+            bool oneleft = false;
+            for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
+                int m2 = htn->taskToMethods[t][mi];
+                if (unreachableM->find(m2) == unreachableM->end()) {
+                    oneleft = true;
+                    break;
+                }
+            }
+            if (!oneleft) {
+                newlyUnrT->insert(t);
+                unreachableT->insert(t);
+            }
+        }
+        newlyUnrM->clear();
+    }
+    cout << "- pruned " << unreachableT->size() << " tasks and " << unreachableM->size() << " methods." << endl;
+
     // prepare things
     int numNewBits = prefix.size() + 2;
 
     // new task structure:
-    // aaaaapppccccnnn
-    // - a: actions contained in original domain
+    // pppccccnnn
     // - p: copies of actions, one for each action in prefix (as many as there are actions in prefix)
     // - c: abstract tasks contained in original
     // - n: newly introduced abstract tasks (as many as there are distinct tasks in prefix)
 
-    // mapping from actions contained in the prefix to the new abstract tasks
-    map<int,int> prim2abs;
-    int abs = htn->numTasks + prefix.size();
-    for (auto prim : distinctActions) {
-        prim2abs[prim] = abs++;
-    }
-
-    // old task indices to new ones
     map<int,int> old2new;
-    for(int i = 0; i < htn->numActions; i++) {
-        if(distinctActions.find(i) != distinctActions.end()) {
-            old2new[i] = prim2abs[i];
-        } else {
-            old2new[i] = i;
+    int current = prefix.size();
+    for(int i = htn->numActions; i < htn->numTasks; i++) {
+        if(unreachableT->find(i) == unreachableT->end()) {
+            old2new[i] = current++;
         }
     }
-    for(int i = htn->numActions; i < htn->numTasks; i++) {
-        old2new[i] = i + prefix.size();
+
+    // mapping from actions contained in the prefix to the new abstract tasks
+    map<int,int> prim2abs;
+    for (int a : distinctActions) {
+        prim2abs[a] = current++;
+        old2new[a] = prim2abs[a];
     }
 
     //
@@ -115,10 +151,7 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     }
 
     fOut << endl << ";; Actions" << endl;
-    fOut << htn->numActions + prefix.size() << endl;
-    for (int i = 0; i < htn->numActions; i++) {
-        writeAction(htn, fOut, i, last, last);
-    }
+    fOut << prefix.size() << endl;
     for (int i = 0; i < prefix.size(); i++) {
         writeAction(htn, fOut, prefix[i], first + i, first + i + 1);
     }
@@ -136,44 +169,46 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     fOut << last - 1 << " -1" << endl;
 
     fOut << endl << ";; tasks (primitive and abstract)" << endl;
-    fOut << htn->numTasks + prefix.size() + distinctActions.size() << endl;
-    for (int i = 0; i < htn->numActions; i++) {
-        fOut << "0 " << htn->taskNames[i] << endl;
-    }
+    int numTasks = htn->numTasks + prefix.size() - unreachableT->size();
+    fOut << numTasks << endl;
+    int check = 0;
     for (int i = 0; i < prefix.size(); i++) {
         fOut << "0 " << htn->taskNames[prefix[i]] << endl;
+        check++;
     }
     for (int i = htn->numActions; i < htn->numTasks; i++) {
-        fOut << "1 " << htn->taskNames[i] << endl;
+        if(unreachableT->find(i) == unreachableT->end()) {
+            fOut << "1 " << htn->taskNames[i] << endl;
+            check++;
+        }
     }
     for (int t : distinctActions) {
         fOut << "1 <abs>" << htn->taskNames[t] << endl;
+        check++;
     }
+    assert(check == numTasks);
 
     fOut << endl << ";; initial abstract task" << endl;
     fOut << old2new[htn->initialTask] << endl;
 
     fOut << endl << ";; methods" << endl;
-    fOut << htn->numMethods + distinctActions.size() + prefix.size() << endl;
+    int numMethods = htn->numMethods + prefix.size() - unreachableM->size();
+    fOut << numMethods << endl;
+    check = 0;
     for (int i = 0; i < htn->numMethods; i++) {
-        fOut << htn->methodNames[i] << endl;
-        fOut << old2new[htn->decomposedTask[i]] << endl;
-        for (int j = 0; j < htn->numSubTasks[i]; j++) {
-            fOut << old2new[htn->subTasks[i][j]] << " ";
+        if(unreachableM->find(i) == unreachableM->end()) {
+            fOut << htn->methodNames[i] << endl;
+            fOut << old2new[htn->decomposedTask[i]] << endl;
+            for (int j = 0; j < htn->numSubTasks[i]; j++) {
+                fOut << old2new[htn->subTasks[i][j]] << " ";
+            }
+            fOut << "-1" << endl;
+            for (int j = 0; j < htn->numOrderings[i]; j++) {
+                fOut << htn->ordering[i][j] << " ";
+            }
+            fOut << "-1" << endl;
+            check++;
         }
-        fOut << "-1" << endl;
-        for (int j = 0; j < htn->numOrderings[i]; j++) {
-            fOut << htn->ordering[i][j] << " ";
-        }
-        fOut << "-1" << endl;
-    }
-
-    // methods from new abstract tasks to original actions
-    for(int a : distinctActions) {
-        fOut <<  "__<method2org>" << htn->taskNames[a] << endl;
-        fOut << prim2abs[a] << endl;
-        fOut << a << " -1" << endl;
-        fOut << "-1" << endl; // ordering relations
     }
 
     // methods from new abstract tasks to prefix copies
@@ -181,9 +216,11 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
         int a = prefix[i];
         fOut <<  "__<method2pref" << i << ">" << htn->taskNames[a] << endl;
         fOut << prim2abs[a] << endl;
-        fOut << htn->numActions + i << " -1" << endl;
+        fOut << i << " -1" << endl;
         fOut << "-1" << endl; // ordering relations
+        check++;
     }
+    assert(check == numMethods);
 
     fOut.close();
 }

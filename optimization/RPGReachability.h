@@ -22,14 +22,12 @@ class RPGReachability {
     int* hValOp;
     int* hValProp;
 
-    noDelIntSet markedFs;
-    noDelIntSet markedOps;
-    IntStack needToMark;
-
 public:
     RPGReachability(progression::Model *htn);
 
     void computeReachability(FiniteAutomaton *dfa);
+
+    static void addToReachable(unordered_map<int, set<pair<int, int>> *> *dfa, int a, int from, int to);
 };
 
 

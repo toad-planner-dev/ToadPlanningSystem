@@ -8,56 +8,95 @@
 RPGReachability::RPGReachability(progression::Model *htn) {
     this->m = htn;
     hValPropInit = new int[m->numStateBits];
-    for (int i = 0; i < m->numStateBits; i++) {
-        hValPropInit[i] = UNREACHABLE;
-    }
-    queue = new IntPairHeap(m->numStateBits * 2);
     numSatPrecs = new int[m->numActions];
-    hValOp = new int[m->numActions];
-    hValProp = new int[m->numStateBits];
-    markedFs.init(m->numStateBits);
-    markedOps.init(m->numActions);
-    needToMark.init(m->numStateBits);
 }
 
 void RPGReachability::computeReachability(FiniteAutomaton *dfa) {
     memcpy(numSatPrecs, m->numPrecs, sizeof(int) * m->numActions);
-    memcpy(hValOp, m->actionCosts, sizeof(int) * m->numActions);
-    memcpy(hValProp, hValPropInit, sizeof(int) * m->numStateBits);
 
-    queue->clear();
-    for (int i = 0; i < m->s0Size; i++) {
-        int f = m->s0List[i];
-        queue->add(0, f);
-        hValProp[f] = 0;
+    dfa->actionMap = new unordered_map<int, set<pair<int, int>> *>;
+
+    set<int>* dfaNow = new set<int>;
+    set<int>* dfaNext = new set<int>;
+    set<int>* fixpoint = new set<int>;
+    dfaNow->insert(0);
+
+    set<int>* state = new set<int>;
+    set<int>* newFeatures = new set<int>;
+
+    for(int i = 0; i < m->s0Size; i++) {
+        newFeatures->insert(m->s0List[i]);
     }
 
-    for (int i = 0; i < m->numPrecLessActions; i++) {
-        int ac = m->precLessActions[i];
-        for (int iAdd = 0; iAdd < m->numAdds[ac]; iAdd++) {
-            int fAdd = m->addLists[ac][iAdd];
-            hValProp[fAdd] = m->actionCosts[ac];
-            queue->add(hValProp[fAdd], fAdd);
+    while(true) {
+        if(newFeatures->empty()) {
+            int lastSize = fixpoint->size();
+            fixpoint->insert(dfaNow->begin(), dfaNow->end());
+            if(lastSize == fixpoint->size()) {
+                break;
+            }
+        } else { // new state features have been added
+            fixpoint->clear();
         }
-    }
-    while (!queue->isEmpty()) {
-        int pVal = queue->topKey();
-        int prop = queue->topVal();
-        queue->pop();
-        if (hValProp[prop] < pVal)
-            continue;
-        for (int iOp = 0; iOp < m->precToActionSize[prop]; iOp++) {
-            int op = m->precToAction[prop][iOp];
-            hValOp[op] += pVal;
-            if (--numSatPrecs[op] == 0) {
-                for (int iF = 0; iF < m->numAdds[op]; iF++) {
-                    int f = m->addLists[op][iF];
-                    if (hValOp[op] < hValProp[f]) {
-                        hValProp[f] = hValOp[op];
-                        queue->add(hValProp[f], f);
+
+        // update state-based applicability
+        for (int f : *newFeatures) {
+            for (int i = 0; i < m->precToActionSize[f]; i++) {
+                int a = m->precToAction[f][i];
+                if(numSatPrecs[a] > 0)
+                    numSatPrecs[a]--;
+            }
+        }
+        state->insert(newFeatures->begin(), newFeatures->end());
+        newFeatures->clear();
+
+        // test applicability of all actions applicable from the current DFA states
+        dfaNext->clear();
+        for(int from : *dfaNow) {
+            if (dfa->fda2.find(from) == dfa->fda2.end()) continue;
+            for (auto &it2: *dfa->fda2.at(from)) {
+                int to = it2.first;
+                set<int> actions = *it2.second;
+                for (int a : actions) {
+                    if(a == -1) {
+                        addToReachable(dfa->actionMap, a, from, to);
+                        continue;
+                    }
+                    if (numSatPrecs[a] <= 0) { // state-based applicable
+                        for (int iF = 0; iF < m->numAdds[a]; iF++) {
+                            int f = m->addLists[a][iF];
+                            if(state->find(f) == state->end()) {
+                                newFeatures->insert(f);
+                            }
+                        }
+                        dfaNext->insert(to);
+                        addToReachable(dfa->actionMap, a, from, to);
                     }
                 }
             }
         }
+        if (dfaNext->empty()) {
+            break;
+        }
+        set<int>* temp = dfaNow;
+        dfaNow = dfaNext;
+        dfaNext = temp;
+        dfaNext->clear();
     }
+    dfa->actionMapDone = true;
+    int transitions = 0;
+    for(int i = 0; i < m->numActions; i++) {
+        if(dfa->actionMap->find(i) != dfa->actionMap->end()) {
+            transitions += dfa->actionMap->at(i)->size();
+        }
+    }
+    cout << "- new DFA contains " << transitions << " transitions." << endl;
+}
+
+void RPGReachability::addToReachable(unordered_map<int, set<pair<int, int>> *> *actionMap, int a, int from, int to) {
+    if (actionMap->find(a) == actionMap->end()) {
+        set<pair<int, int>> *s = new set<pair<int, int>>;
+        actionMap->insert({a, s});
+    }
+    actionMap->at(a)->insert({from, to});
 }

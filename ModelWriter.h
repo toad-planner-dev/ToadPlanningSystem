@@ -34,7 +34,7 @@ public:
 
     FiniteAutomaton *dfa;
 
-    void writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *>* extraStuff);
+    void writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int>> *>* extraStuff);
 };
 
 

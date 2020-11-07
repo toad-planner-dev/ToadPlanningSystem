@@ -13,7 +13,7 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, 
     this->m = htn;
     this->dfa = automaton;
 
-    if(writePDDL) {
+    if (writePDDL) {
         ofstream dfile;
         dfile.open(dName);
         writeDomain(dfile);
@@ -32,13 +32,13 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, 
     }
 }
 
-void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int> *> *>* extraStuff) {
+void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int>> *> *extraStuff) {
     IntUtil iu;
-    iu.sort(m->gList, 0, m->gSize -1);
-    iu.sort(m->s0List, 0, m->s0Size -1);
+    iu.sort(m->gList, 0, m->gSize - 1);
+    iu.sort(m->s0List, 0, m->s0Size - 1);
 
     bool isBoolean[m->numVars];
-    for(int i = 0; i < m->numVars; i++) {
+    for (int i = 0; i < m->numVars; i++) {
         isBoolean[i] = (m->lastIndex[i] == m->firstIndex[i]);
     }
 
@@ -56,14 +56,19 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         os << "begin_variable" << endl;
         os << "var" << i << endl;
         os << "-1" << endl; // axiom layer
-        if(isBoolean[i]) {
+        if (isBoolean[i]) {
             os << "2" << endl;
             os << "Atom " << su.cleanStr(m->factStrs[m->firstIndex[i]]) << endl;
             os << "<none of those>" << endl;
         } else {
             os << (m->lastIndex[i] - m->firstIndex[i] + 1) << endl;
             for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
-                os << "Atom " << su.cleanStr(m->factStrs[j]) << endl;
+                string atom = su.cleanStr(m->factStrs[j]);
+                if (atom == "<none of those>") {
+                    os << atom << endl;
+                } else {
+                    os << "Atom " << atom << endl;
+                }
             }
         }
         os << "end_variable" << endl;
@@ -100,7 +105,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         s0[var] = val - m->firstIndex[var];
     }
     for (int i = 0; i < m->numVars; i++) {
-        if(isBoolean[i] && (s0[i] == -1)) { // it is not set -> set to <none of those>
+        if (isBoolean[i] && (s0[i] == -1)) { // it is not set -> set to <none of those>
             s0[i] = 1;
         }
     }
@@ -155,7 +160,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             cout << "error: two values of same sas+ variable are in precondition of action " << m->taskNames[i] << endl;
             exit(-1);
         }
-        if (getSASVal(varAdd, m->addLists[i], m->numAdds[i])){
+        if (getSASVal(varAdd, m->addLists[i], m->numAdds[i])) {
             cout << "error: two values of same sas+ variable are in effect of action " << m->taskNames[i] << endl;
             exit(-1);
         }
@@ -235,7 +240,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
                     effect.push_back(v);
                     effect.push_back(-1); // value needed before
                     effect.push_back(varAdd[v]); // value the variable is set to
-                } else if ((varPrec[v] != -1)||(varDel[v] != -1)||(varDel[v] != -1)){
+                } else if ((varPrec[v] != -1) || (varDel[v] != -1) || (varDel[v] != -1)) {
                     cout << "unexpected sas+ values in action:" << endl;
                     cout << "prec " << varPrec[v] << endl;
                     cout << "add  " << varAdd[v] << endl;
@@ -248,10 +253,10 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             varDel[v] = -1;
         }
         // write everything
-        for (pair<int, int> *extra : *extraStuff->at(i)) {
+        for (pair<int, int> extra : *extraStuff->at(i)) {
             int numPrevail = prevail.size() / 2;
             int numEffect = (effect.size() / 4);
-            if(extra->first != extra->second) {
+            if (extra.first != extra.second) {
                 numEffect++;
             } else {
                 numPrevail++;
@@ -262,27 +267,27 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             for (int j = 0; j < prevail.size(); j += 2) {
                 os << prevail[j] << " " << prevail[j + 1] << endl;
             }
-            if (extra->first == extra->second) { // dfa prec
-                os << m->numVars << " " << extra->first << endl;
+            if (extra.first == extra.second) { // dfa prec
+                os << m->numVars << " " << extra.first << endl;
             }
             os << numEffect << endl; // one is added for the dfa
             for (int j = 0; j < effect.size(); j += 4) {
                 os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << endl;
             }
-            if (extra->first != extra->second) { // dfa effect
-                os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
+            if (extra.first != extra.second) { // dfa effect
+                os << 0 << " " << m->numVars << " " << extra.first << " " << extra.second << endl;
             }
             os << 1 << endl; // action costs, 0 means unicosts
             os << "end_operator" << endl;
         }
     }
-    if(extraStuff->find(-1) != extraStuff->end()) {
-        for (pair<int, int> *extra : *extraStuff->at(-1)) {
+    if (extraStuff->find(-1) != extraStuff->end()) {
+        for (pair<int, int> extra : *extraStuff->at(-1)) {
             os << "begin_operator" << endl;
             os << "epsilon" << endl;
             os << 0 << endl; // prevail constraints
             os << 1 << endl; // effects
-            os << 0 << " " << m->numVars << " " << extra->first << " " << extra->second << endl;
+            os << 0 << " " << m->numVars << " " << extra.first << " " << extra.second << endl;
             os << 1 << endl; // action costs, 0 means unicosts
             os << "end_operator" << endl;
         }
@@ -294,21 +299,21 @@ void ModelWriter::writeDomain(ostream &os) {
     os << "(define (domain htn)" << endl;
 
     writePredDef(os, dfa->stateID);
-    unordered_map<int, set<pair<int, int> *> *>* extraStuff = dfa->getActionMap();
+    unordered_map<int, set<pair<int, int>> *> *extraStuff = dfa->getActionMap();
     for (int i = 0; i < m->numActions; i++) {
         if (extraStuff->find(i) == extraStuff->end()) {
             cout << "- automaton contains no rule for action " << m->taskNames[i] << endl;
             continue;
         }
-        for (pair<int, int> *extra : *extraStuff->at(i)) {
-            writeAction(os, i, extra->first, extra->second, extra->first);
+        for (pair<int, int> extra : *extraStuff->at(i)) {
+            writeAction(os, i, extra.first, extra.second, extra.first);
         }
         //writeActionCF(os, i, extraStuff[i]);
     }
     //writeEpsilonActionCF(os, extraStuff[-1]);
-    if(extraStuff->find(-1) != extraStuff->end()) {
-        for (pair<int, int> *extra : *extraStuff->at(-1)) {
-            writeEpsilonAction(os, extra->first, extra->second, extra->first);
+    if (extraStuff->find(-1) != extraStuff->end()) {
+        for (pair<int, int> extra : *extraStuff->at(-1)) {
+            writeEpsilonAction(os, extra.first, extra.second, extra.first);
         }
     } else {
         cout << "- automaton contains no epsilon transitions." << endl;

@@ -9,19 +9,23 @@
 void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
     if ((alpha == -1) && (q0 == q1))
         return;
-    Pair *p = new Pair(q0, q1);
     set<int> *labels;
-    if (this->fda.find(p) == fda.end()) {
-        labels = new set<int>;
-        this->fda[p] = labels;
-    } else {
-        labels = this->fda[p];
+    if (fda2.find(q0) == fda2.end()) {
+        fda2[q0] = new unordered_map<int, set<int>*>;
     }
-    if(labels->find(alpha) == labels->end())
+
+    if (fda2[q0]->find(q1) == fda2[q0]->end()) {
+        labels = new set<int>;
+        fda2[q0]->insert({q1, labels});
+    } else {
+        labels = fda2[q0]->at(q1);
+    }
+    if (labels->find(alpha) == labels->end())
         this->numTransitions++;
     labels->insert(alpha);
 }
 
+/*
 void FiniteAutomaton::print(string *pVector, int start, int final) {
     cout << "digraph G {" << endl;
     for (auto &it: fda) {
@@ -45,19 +49,24 @@ void FiniteAutomaton::print(string *pVector, int start, int final) {
     }
     cout << "}" << endl;
 }
+*/
 
-unordered_map<int, set<pair<int, int> *> *>* FiniteAutomaton::getActionMap() {
+unordered_map<int, set<pair<int, int>> *>* FiniteAutomaton::getActionMap() {
     if(!actionMapDone) {
-        this->actionMap = new unordered_map<int, set<pair<int, int> *> *>;
-        for (auto &it: this->fda) {
-            Pair *p = it.first;
-            set<int> *labels = it.second;
-            for (int l : *labels) {
-                if (actionMap->find(l) == actionMap->end()) {
-                    set<pair<int, int> *> *s = new set<pair<int, int> *>;
-                    actionMap->insert({l, s});
+        this->actionMap = new unordered_map<int, set<pair<int, int>> *>;
+        for (auto &it: fda2) {
+            int from = it.first;
+            for (auto &it2: *fda2.at(from)) {
+                int to = it2.first;
+                set<int> *labels = it2.second;
+
+                for (int l : *labels) {
+                    if (actionMap->find(l) == actionMap->end()) {
+                        set<pair<int, int>> *s = new set<pair<int, int>>;
+                        actionMap->insert({l, s});
+                    }
+                    actionMap->at(l)->insert({from, to});
                 }
-                actionMap->at(l)->insert(new pair<int, int>(p->from, p->to));
             }
         }
         actionMapDone = true;
