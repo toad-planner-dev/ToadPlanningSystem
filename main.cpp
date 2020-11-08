@@ -5,6 +5,7 @@
 #include "ModelWriter.h"
 #include "optimization/RPGReachability.h"
 #include "verification/GroundVerifier.h"
+#include "translation/TailRecAnalysis.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -26,6 +27,7 @@ int main(int argc, char *argv[]) {
     timeval tp;
 
     bool verify = false;
+    bool determineIfTR = false;
     int seed = 42;
     bool printhelp = false;
     if (argc < 2) {
@@ -36,6 +38,9 @@ int main(int argc, char *argv[]) {
             verify = true;
             s = argv[2];
             if (argc != 4) printhelp = true;
+        } else if (str == "-tr") {
+            determineIfTR = true;
+            s = argv[2];
         } else {
             s = argv[1];
             if (argc == 3) seed = atoi(argv[2]);
@@ -63,9 +68,16 @@ int main(int argc, char *argv[]) {
     htn->filename = s;
     htn->read(s);
     //assert(htn->isHtnModel);
-
     htn->calcSCCs();
     gettimeofday(&tp, NULL);
+
+    if (determineIfTR) {
+        TailRecAnalysis tra;
+        string filename = "/home/dh/Dokumente/versioniert/Source-Code/TOAD-Source/examples/testTR.lp";
+        tra.analyse(htn, filename);
+        exit(0);
+    }
+
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
     startT = endT;
