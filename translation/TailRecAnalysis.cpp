@@ -5,13 +5,16 @@
 #include <fstream>
 #include <cassert>
 #include "TailRecAnalysis.h"
+#include <map>
 
 using namespace std;
 
 void TailRecAnalysis::analyse(Model *htn, string filename) {
     string outFileName = filename;
     std::ofstream fOut(outFileName);
-    fOut << "min: t" << htn->initialTask << ";" << endl;
+
+    vector<int[3]> orderingRels;
+
     for (int i = 0; i < htn->numMethods; i++) {
         vector<int> *rule = new vector<int>;
 
@@ -53,12 +56,13 @@ void TailRecAnalysis::analyse(Model *htn, string filename) {
 
         int decompT = htn->decomposedTask[i];
         for(int j = 0; j < rule->size(); j++) {
-            fOut << "t" << decompT << " - t" << rule->at(j) << " >= 1;" << endl;
-            if (j == rule->size() - 1) {
-                fOut << "t" << decompT << " - t" << rule->at(j) << " >= 0;" << endl;
-            }
+            //orderingRels.
+            rule->at(j);
         }
     }
+
+    map<int, set<int>> xIsSecond; // mapping from x to rules where x is second
+
     fOut << "int";
     for(int i = 0; i < htn->numTasks; i++) {
         if (i > 0)

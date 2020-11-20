@@ -6,6 +6,7 @@
 #include "optimization/RPGReachability.h"
 #include "verification/GroundVerifier.h"
 #include "translation/TailRecAnalysis.h"
+#include "optimization/DFAMinimization.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -150,11 +151,17 @@ int main(int argc, char *argv[]) {
     cout << "- [timeBuildingDFA=" << (endT - startT) << "]" << endl;
     startT = endT;
 
+    /*
+    cout << "Minimizing DFA" << endl;
+    DFAMinimization mini;
+    mini.minimize(htn, to2s->dfa, to2s->dfa->startState, to2s->dfa->finalState);
+    cout << "done!" << endl;
+    */
     //cout << "Performing delete-relaxed forward reachability analysis" << endl;
     //RPGReachability *rpg = new RPGReachability(htn);
     //rpg->computeReachability(to2s->dfa);
 
-    cout << "Creating output STRIPS model" << endl;
+    cout << "Creating output model" << endl;
     string dFile = "domain.pddl";
     string pFile = "problem.sas";
 

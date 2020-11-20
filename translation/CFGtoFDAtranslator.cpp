@@ -35,6 +35,7 @@ void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
         makeFA(q0, X, q);
         makeFA(q, beta, q1);
     }
+    delete alpha;
 }
 
 void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {

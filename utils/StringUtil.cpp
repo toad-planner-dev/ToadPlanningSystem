@@ -31,10 +31,13 @@ string StringUtil::cleanStr(string s){
     if(s == "none-of-them") {
         return "<none of those>";
     }
+    if(!this->doCleaning)
+        return s;
+
 	std::string str = s;
-	std::replace(str.begin(), str.end(), ']', ')');
-    std::replace(str.begin(), str.end(), '[', '(');
-/*
+	//std::replace(str.begin(), str.end(), ']', ')');
+    //std::replace(str.begin(), str.end(), '[', '(');
+
     std::replace(str.begin(), str.end(), '+', 'p');
 	std::replace(str.begin(), str.end(), ',', '_');
 	std::replace(str.begin(), str.end(), ';', '_');
@@ -53,7 +56,7 @@ string StringUtil::cleanStr(string s){
 	std::replace(str.begin(), str.end(), '<', '_');
 	std::replace(str.begin(), str.end(), '>', '_');
 
-	if (str[0] == '_') return "x"+str;*/
+	if (str[0] == '_') return "x"+str;
 	return str;
 }
 

@@ -14,16 +14,20 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, 
     this->dfa = automaton;
 
     if (writePDDL) {
+        this->su.doCleaning = true;
         ofstream dfile;
+        cout << "- writing domain file" << endl;
         dfile.open(dName);
         writeDomain(dfile);
         dfile.close();
+        cout << "- done" << endl;
 
-        writeDomain(dfile);
+        cout << "- writing domain file" << endl;
         ofstream pfile;
         pfile.open(pName);
         writeProblem(pfile, 0, 1);
         pfile.close();
+        cout << "- done" << endl;
     } else { // SAS+
         ofstream os;
         os.open(pName);
@@ -32,7 +36,7 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, 
     }
 }
 
-void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int>> *> *extraStuff) {
+void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int, set<int> *> *> *extraStuff) {
     IntUtil iu;
     iu.sort(m->gList, 0, m->gSize - 1);
     iu.sort(m->s0List, 0, m->s0Size - 1);
@@ -42,53 +46,53 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         isBoolean[i] = (m->lastIndex[i] == m->firstIndex[i]);
     }
 
-    os << "begin_version" << endl;
-    os << "3" << endl;
-    os << "end_version" << endl;
-    os << "begin_metric" << endl;
-    os << "0" << endl;
-    os << "end_metric" << endl;
+    os << "begin_version\n";
+    os << "3\n";
+    os << "end_version\n";
+    os << "begin_metric\n";
+    os << "0\n";
+    os << "end_metric\n";
 
-    os << m->numVars + 1 << endl; // number of variables
+    os << m->numVars + 1 << "\n"; // number of variables
 
     // write original variables
     for (int i = 0; i < m->numVars; i++) {
-        os << "begin_variable" << endl;
-        os << "var" << i << endl;
-        os << "-1" << endl; // axiom layer
+        os << "begin_variable\n";
+        os << "var" << i << "\n";
+        os << "-1\n"; // axiom layer
         if (isBoolean[i]) {
-            os << "2" << endl;
-            os << "Atom " << su.cleanStr(m->factStrs[m->firstIndex[i]]) << endl;
-            os << "<none of those>" << endl;
+            os << "2\n";
+            os << "Atom " << su.cleanStr(m->factStrs[m->firstIndex[i]]) << "\n";
+            os << "<none of those>\n";
         } else {
-            os << (m->lastIndex[i] - m->firstIndex[i] + 1) << endl;
+            os << (m->lastIndex[i] - m->firstIndex[i] + 1) << "\n";
             for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
                 string atom = su.cleanStr(m->factStrs[j]);
                 if (atom == "<none of those>") {
-                    os << atom << endl;
+                    os << atom << "\n";
                 } else {
-                    os << "Atom " << atom << endl;
+                    os << "Atom " << atom << "\n";
                 }
             }
         }
-        os << "end_variable" << endl;
+        os << "end_variable\n";
     }
 
     // write dfa states
-    os << "begin_variable" << endl;
-    os << "var" << m->numVars << endl;
-    os << "-1" << endl;
-    os << dfa->stateID << endl;
+    os << "begin_variable\n";
+    os << "var" << m->numVars << "\n";
+    os << "-1\n";
+    os << dfa->stateID << "\n";
     for (int i = 0; i < dfa->stateID; i++) {
-        os << "Atom dfa(s" << i << ")" << endl;
+        os << "Atom dfa(s" << i << ")\n";
     }
-    os << "end_variable" << endl;
+    os << "end_variable\n";
 
     // mutex groups
-    os << "0" << endl;
+    os << "0\n";
 
     // initial state
-    os << "begin_state" << endl;
+    os << "begin_state\n";
     int s0[m->numVars];
     for (int i = 0; i < m->numVars; i++) {
         s0[i] = -1;
@@ -99,7 +103,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
             var++;
         if (s0[var] != -1) {
-            cout << "error: two values of same sas+ variable are set in s0" << endl;
+            cout << "error: two values of same sas+ variable are set in s0\n";
             exit(-1);
         }
         s0[var] = val - m->firstIndex[var];
@@ -110,23 +114,23 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         }
     }
     for (int i = 0; i < m->numVars; i++) {
-        os << s0[i] << endl;
+        os << s0[i] << "\n";
     }
-    os << "0" << endl; // initial value of automaton
-    os << "end_state" << endl;
+    os << "0\n"; // initial value of automaton
+    os << "end_state\n";
 
     // write goal definition
-    os << "begin_goal" << endl;
-    os << m->gSize + 1 << endl;
+    os << "begin_goal\n";
+    os << m->gSize + 1 << "\n";
     for (int i = 0; i < m->gSize; i++) {
         int val = m->gList[i];
         int var = 0;
         while (!((m->firstIndex[var] <= val) && (m->lastIndex[var] >= val)))
             var++;
-        os << var << " " << (val - m->firstIndex[var]) << endl;
+        os << var << " " << (val - m->firstIndex[var]) << "\n";
     }
-    os << m->numVars << " " << "1" << endl; // reach final state of automaton
-    os << "end_goal" << endl;
+    os << m->numVars << " " << "1\n"; // reach final state of automaton
+    os << "end_goal\n";
 
     // count actions
     int numActions = 0;
@@ -134,9 +138,11 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
         if (extraStuff->find(i) == extraStuff->end()) {
             continue; // unreachable via automaton
         }
-        numActions += extraStuff->at(i)->size();
+        for(auto from : *extraStuff->at(i)) {
+            numActions += from.second->size();
+        }
     }
-    os << numActions << endl;
+    os << numActions << "\n";
 
     // write actions
     int varPrec[m->numVars];
@@ -150,7 +156,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
     vector<int> prevail;
     vector<int> effect;
     for (int i = 0; i < m->numActions; i++) {
-        //cout << m->taskNames[i] << endl;
+        //cout << m->taskNames[i] << "\n";
 
         if (extraStuff->find(i) == extraStuff->end()) {
             continue; // unreachable via automaton
@@ -164,9 +170,9 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             cout << "error: two values of same sas+ variable are in effect of action " << m->taskNames[i] << endl;
             exit(-1);
         }
-        if (getSASVal(varDel, m->delLists[i], m->numDels[i])) {
-            cout << "warning: two values of same sas+ variable are in del effect of action " << m->taskNames[i] << endl;
-        }
+        //if (getSASVal(varDel, m->delLists[i], m->numDels[i])) {
+        //    cout << "warning: two values of same sas+ variable are in del effect of action " << m->taskNames[i] << endl;
+        //}
         /*
         for(int v = 0; v < m->numVars; v++) {
             if ((varPrec[v] != -1)||(varDel[v] != -1)||(varDel[v] != -1)) {
@@ -179,7 +185,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
                 cout << ", " << varDel[v] << " ";
                 if (varDel[v] != -1)
                     cout << m->factStrs[m->firstIndex[v] + varDel[v]];
-                cout << ")" << endl;
+                cout << ")\n";
             }
         }
          */
@@ -241,10 +247,10 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
                     effect.push_back(-1); // value needed before
                     effect.push_back(varAdd[v]); // value the variable is set to
                 } else if ((varPrec[v] != -1) || (varDel[v] != -1) || (varDel[v] != -1)) {
-                    cout << "unexpected sas+ values in action:" << endl;
-                    cout << "prec " << varPrec[v] << endl;
-                    cout << "add  " << varAdd[v] << endl;
-                    cout << "del  " << varDel[v] << endl;
+                    cout << "unexpected sas+ values in action:\n";
+                    cout << "prec " << varPrec[v] << "\n";
+                    cout << "add  " << varAdd[v] << "\n";
+                    cout << "del  " << varDel[v] << "\n";
                     exit(-1);
                 }
             }
@@ -253,67 +259,88 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, set<pair<int, int
             varDel[v] = -1;
         }
         // write everything
-        for (pair<int, int> extra : *extraStuff->at(i)) {
-            int numPrevail = prevail.size() / 2;
-            int numEffect = (effect.size() / 4);
-            if (extra.first != extra.second) {
-                numEffect++;
-            } else {
-                numPrevail++;
+        for (auto extra : *extraStuff->at(i)) {
+            int from = extra.first;
+            for (int to : *extra.second) {
+                int numPrevail = prevail.size() / 2;
+                int numEffect = (effect.size() / 4);
+                if (from != to) {
+                    numEffect++;
+                } else {
+                    numPrevail++;
+                }
+                os << "begin_operator\n";
+                os << m->taskNames[i] << "\n";
+                os << numPrevail << "\n";
+                for (int j = 0; j < prevail.size(); j += 2) {
+                    os << prevail[j] << " " << prevail[j + 1] << "\n";
+                }
+                if (from == to) { // dfa prec
+                    os << m->numVars << " " << from << "\n";
+                }
+                os << numEffect << "\n"; // one is added for the dfa
+                for (int j = 0; j < effect.size(); j += 4) {
+                    os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << "\n";
+                }
+                if (from != to) { // dfa effect
+                    os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
+                }
+                os << 1 << "\n"; // action costs, 0 means unicosts
+                os << "end_operator\n";
             }
-            os << "begin_operator" << endl;
-            os << m->taskNames[i] << endl;
-            os << numPrevail << endl;
-            for (int j = 0; j < prevail.size(); j += 2) {
-                os << prevail[j] << " " << prevail[j + 1] << endl;
-            }
-            if (extra.first == extra.second) { // dfa prec
-                os << m->numVars << " " << extra.first << endl;
-            }
-            os << numEffect << endl; // one is added for the dfa
-            for (int j = 0; j < effect.size(); j += 4) {
-                os << effect[j] << " " << effect[j + 1] << " " << effect[j + 2] << " " << effect[j + 3] << endl;
-            }
-            if (extra.first != extra.second) { // dfa effect
-                os << 0 << " " << m->numVars << " " << extra.first << " " << extra.second << endl;
-            }
-            os << 1 << endl; // action costs, 0 means unicosts
-            os << "end_operator" << endl;
         }
     }
     if (extraStuff->find(-1) != extraStuff->end()) {
-        for (pair<int, int> extra : *extraStuff->at(-1)) {
-            os << "begin_operator" << endl;
-            os << "epsilon" << endl;
-            os << 0 << endl; // prevail constraints
-            os << 1 << endl; // effects
-            os << 0 << " " << m->numVars << " " << extra.first << " " << extra.second << endl;
-            os << 1 << endl; // action costs, 0 means unicosts
-            os << "end_operator" << endl;
+        for (auto extra : *extraStuff->at(-1)) {
+            int from = extra.first;
+            for (int to : *extra.second) {
+                os << "begin_operator\n";
+                os << "epsilon\n";
+                os << 0 << "\n"; // prevail constraints
+                os << 1 << "\n"; // effects
+                os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
+                os << 1 << "\n"; // action costs, 0 means unicosts
+                os << "end_operator\n";
+            }
         }
     }
-    os << 0 << endl;
+    os << 0 << "\n";
 }
 
 void ModelWriter::writeDomain(ostream &os) {
     os << "(define (domain htn)" << endl;
 
+    cout << "  - writing predicate definition" << endl;
     writePredDef(os, dfa->stateID);
-    unordered_map<int, set<pair<int, int>> *> *extraStuff = dfa->getActionMap();
+
+    cout << "  - writing action definition" << endl;
+    auto *extraStuff = dfa->getActionMap();
+    int tenpercent = m->numActions / 10;
+    int since = 0;
     for (int i = 0; i < m->numActions; i++) {
         if (extraStuff->find(i) == extraStuff->end()) {
             cout << "- automaton contains no rule for action " << m->taskNames[i] << endl;
             continue;
         }
-        for (pair<int, int> extra : *extraStuff->at(i)) {
-            writeAction(os, i, extra.first, extra.second, extra.first);
+        for (auto extra : *extraStuff->at(i)) {
+            int from = extra.first;
+            for (int to : *extra.second) {
+                writeAction(os, i, from, to, from);
+            }
+        }
+        if(++since > tenpercent) {
+            cout << "    " << i << "/" << m->numActions << endl;
+            since = 0;
         }
         //writeActionCF(os, i, extraStuff[i]);
     }
     //writeEpsilonActionCF(os, extraStuff[-1]);
     if (extraStuff->find(-1) != extraStuff->end()) {
-        for (pair<int, int> extra : *extraStuff->at(-1)) {
-            writeEpsilonAction(os, extra.first, extra.second, extra.first);
+        for (auto extra : *extraStuff->at(-1)) {
+            int from = extra.first;
+            for (int to : *extra.second) {
+                writeEpsilonAction(os, from, to, from);
+            }
         }
     } else {
         cout << "- automaton contains no epsilon transitions." << endl;
@@ -352,7 +379,11 @@ void ModelWriter::writePredDef(ostream &os, int maxState) {
 
     os << "  (:predicates ";
     for (int i = 0; i < m->numStateBits; i++) {
-        os << "(" << su.cleanStr(m->factStrs[i]) << ")" << endl;
+        if (m->factStrs[i] == "none-of-them") {
+            os << "(none" << i << ")" << endl;
+        } else {
+            os << "(" << su.cleanStr(m->factStrs[i]) << ")" << endl;
+        }
         os << "               ";
     }
     os << "(dfa ?s - dfastate)" << endl;
@@ -360,23 +391,35 @@ void ModelWriter::writePredDef(ostream &os, int maxState) {
 }
 
 void ModelWriter::writeAction(ostream &os, int action, int dfaPrec, int dfaAdd, int dfaDel) {
-    os << "   (:action " << m->taskNames[action] << "-id" << action << endl;
+    os << "   (:action " << su.cleanStr(m->taskNames[action]) << "-id" << action << endl;
     os << "    :precondition (and" << endl;
     for (int i = 0; i < m->numPrecs[action]; i++) {
         int prec = m->precLists[action][i];
-        os << "      (" << su.cleanStr(m->factStrs[prec]) << ")" << endl;
+        if (m->factStrs[prec] == "none-of-them" ) {
+            os << "      (none" << prec << ")" << endl;
+        } else {
+            os << "      (" << su.cleanStr(m->factStrs[prec]) << ")" << endl;
+        }
     }
     os << "      (dfa s" << dfaPrec << ")";
     os << ")" << endl;
     os << "    :effect (and" << endl;
     for (int i = 0; i < m->numAdds[action]; i++) {
         int add = m->addLists[action][i];
-        os << "      (" << su.cleanStr(m->factStrs[add]) << ")" << endl;
+        if (m->factStrs[add] == "none-of-them" ) {
+            os << "      (none" << add << ")" << endl;
+        } else {
+            os << "      (" << su.cleanStr(m->factStrs[add]) << ")" << endl;
+        }
     }
     os << "      (dfa s" << dfaAdd << ")" << endl;
     for (int i = 0; i < m->numDels[action]; i++) {
         int del = m->delLists[action][i];
-        os << "      (not (" << su.cleanStr(m->factStrs[del]) << "))" << endl;
+        if (m->factStrs[del] == "none-of-them" ) {
+            os << "      (none" << del << ")" << endl;
+        } else {
+            os << "      (not (" << su.cleanStr(m->factStrs[del]) << "))" << endl;
+        }
     }
     os << "      (not (dfa s" << dfaDel << ")))" << endl;
     os << "   )" << endl << endl;
@@ -397,13 +440,21 @@ void ModelWriter::writeProblem(ostream &os, int startState, int goalState) {
     os << "   (:domain htn)" << endl;
     os << "   (:init" << endl;
     for (int i = 0; i < m->s0Size; i++) {
-        os << "      (" << su.cleanStr(m->factStrs[m->s0List[i]]) << ")" << endl;
+        if (m->factStrs[m->s0List[i]] == "none-of-them" ) {
+            os << "      (none" << m->s0List[i] << ")" << endl;
+        } else {
+            os << "      (" << su.cleanStr(m->factStrs[m->s0List[i]]) << ")" << endl;
+        }
     }
     os << "      (dfa s" << dfa->startState << ")" << endl;
     os << "   )" << endl;
     os << "   (:goal (and" << endl;
     for (int i = 0; i < m->gSize; i++) {
-        os << "      (" << su.cleanStr(m->factStrs[m->gList[i]]) << ")" << endl;
+        if (m->factStrs[m->gList[i]] == "none-of-them" ) {
+            os << "      (none" << m->gList[i] << ")" << endl;
+        } else {
+            os << "      (" << su.cleanStr(m->factStrs[m->gList[i]]) << ")" << endl;
+        }
     }
     os << "      (dfa s" << dfa->finalState << ")" << endl;
     os << "   ))" << endl;

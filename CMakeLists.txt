@@ -10,4 +10,4 @@ add_executable(toad main.cpp
         optimization/RPGReachability.cpp optimization/RPGReachability.h
         ModelWriter.cpp ModelWriter.h
         utils/IntUtil.cpp utils/noDelIntSet.cpp utils/IntPairHeap.cpp utils/IntStack.cpp utils/StringUtil.cpp
-        verification/GroundVerifier.cpp verification/GroundVerifier.h translation/TailRecAnalysis.cpp translation/TailRecAnalysis.h)
+        verification/GroundVerifier.cpp verification/GroundVerifier.h translation/TailRecAnalysis.cpp translation/TailRecAnalysis.h optimization/DFAMinimization.cpp optimization/DFAMinimization.h)

@@ -2146,7 +2146,7 @@ void Model::read(string f) {
 		}
 
 		inputStream = fileInput;
-	}	
+	}
 	
 	string line;
 	getline(*inputStream, line);
@@ -2162,7 +2162,7 @@ void Model::read(string f) {
 	if (f != "stdin"){
 		((ifstream*) inputStream)->close();
 	}
-
+    delete inputStream;
 // for debug:
 #if DLEVEL == 5
 	printActions();

@@ -12,6 +12,7 @@ RPGReachability::RPGReachability(progression::Model *htn) {
 }
 
 void RPGReachability::computeReachability(FiniteAutomaton *dfa) {
+    /*
     memcpy(numSatPrecs, m->numPrecs, sizeof(int) * m->numActions);
 
     dfa->actionMap = new unordered_map<int, set<pair<int, int>> *>;
@@ -91,6 +92,7 @@ void RPGReachability::computeReachability(FiniteAutomaton *dfa) {
         }
     }
     cout << "- new DFA contains " << transitions << " transitions." << endl;
+    */
 }
 
 void RPGReachability::addToReachable(unordered_map<int, set<pair<int, int>> *> *actionMap, int a, int from, int to) {

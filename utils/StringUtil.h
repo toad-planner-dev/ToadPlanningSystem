@@ -23,6 +23,8 @@ public:
 	string toLowerString(string str);
 	string cleanStr(string s);
 	string getStrX(string s, int i);
+
+    bool doCleaning = false;
 };
 
 } /* namespace progression */
