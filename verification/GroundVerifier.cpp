@@ -12,9 +12,9 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     // read plan
     //
 
-    for(int i = 0; i < htn->numTasks; i++) {
-        for(int j = i + 1; j < htn->numTasks; j++) {
-            if(htn->taskNames[i] == htn->taskNames[j]) {
+    for (int i = 0; i < htn->numTasks; i++) {
+        for (int j = i + 1; j < htn->numTasks; j++) {
+            if (htn->taskNames[i] == htn->taskNames[j]) {
                 cout << "Found two actions with same name" << endl;
                 exit(-1);
             }
@@ -28,6 +28,7 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     StringUtil su;
     while (std::getline(fIn, line)) {
         if (line.rfind(';') == 0) continue;
+        if (line.rfind("epsilon") == 0) continue;
         line = line.substr(1, line.length() - 2);
         bool found = false;
         for (int i = 0; i < htn->numTasks; i++) {
@@ -45,17 +46,17 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     }
     fIn.close();
 
-    set<int>* unreachableT = new set<int>;
-    set<int>* unreachableM = new set<int>;
-    set<int>* newlyUnrT = new set<int>;
-    set<int>* newlyUnrM = new set<int>;
-    for(int a = 0; a < htn->numActions; a++) {
+    set<int> *unreachableT = new set<int>;
+    set<int> *unreachableM = new set<int>;
+    set<int> *newlyUnrT = new set<int>;
+    set<int> *newlyUnrM = new set<int>;
+    for (int a = 0; a < htn->numActions; a++) {
         if (distinctActions.find(a) == distinctActions.end()) {
             newlyUnrT->insert(a);
             unreachableT->insert(a);
         }
     }
-    while(!newlyUnrT->empty()) {
+    while (!newlyUnrT->empty()) {
         for (int t : *newlyUnrT) {
             for (int mi = 0; mi < htn->stToMethodNum[t]; mi++) {
                 int m = htn->stToMethod[t][mi];
@@ -66,7 +67,7 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
             }
         }
         newlyUnrT->clear();
-        for(int m : *newlyUnrM) {
+        for (int m : *newlyUnrM) {
             int t = htn->decomposedTask[m];
             bool oneleft = false;
             for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
@@ -83,7 +84,31 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
         }
         newlyUnrM->clear();
     }
-    cout << "- pruned " << unreachableT->size() << " tasks and " << unreachableM->size() << " methods." << endl;
+    // test top-down reachability
+    set<int> *reachableT = new set<int>;
+    set<int> *reachableM = new set<int>;
+    vector<int> fringe;
+    fringe.push_back(htn->initialTask);
+    reachableT->insert(htn->initialTask);
+    while (!fringe.empty()) {
+        int t = fringe.back();
+        fringe.pop_back();
+        if (unreachableT->find(t) != unreachableT->end())
+            continue;
+        for (int i = 0; i < htn->numMethodsForTask[t]; i++) {
+            int m = htn->taskToMethods[t][i];
+            if (unreachableM->find(m) != unreachableM->end())
+                continue;
+            reachableM->insert(m);
+            for (int j = 0; j < htn->numSubTasks[m]; j++) {
+                int subt = htn->subTasks[m][j];
+                if (reachableT->find(subt) == reachableT->end()) {
+                    reachableT->insert(subt);
+                    fringe.push_back(subt);
+                }
+            }
+        }
+    }
 
     // prepare things
     int numNewBits = prefix.size() + 2;
@@ -94,16 +119,16 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     // - c: abstract tasks contained in original
     // - n: newly introduced abstract tasks (as many as there are distinct tasks in prefix)
 
-    map<int,int> old2new;
+    map<int, int> old2new;
     int current = prefix.size();
-    for(int i = htn->numActions; i < htn->numTasks; i++) {
-        if(unreachableT->find(i) == unreachableT->end()) {
+    for (int i = htn->numActions; i < htn->numTasks; i++) {
+        if (reachableT->find(i) != reachableT->end()) {
             old2new[i] = current++;
         }
     }
 
     // mapping from actions contained in the prefix to the new abstract tasks
-    map<int,int> prim2abs;
+    map<int, int> prim2abs;
     for (int a : distinctActions) {
         prim2abs[a] = current++;
         old2new[a] = prim2abs[a];
@@ -169,7 +194,7 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     fOut << last - 1 << " -1" << endl;
 
     fOut << endl << ";; tasks (primitive and abstract)" << endl;
-    int numTasks = htn->numTasks + prefix.size() - unreachableT->size();
+    int numTasks = reachableT->size() + prefix.size();
     fOut << numTasks << endl;
     int check = 0;
     for (int i = 0; i < prefix.size(); i++) {
@@ -177,7 +202,7 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
         check++;
     }
     for (int i = htn->numActions; i < htn->numTasks; i++) {
-        if(unreachableT->find(i) == unreachableT->end()) {
+        if (reachableT->find(i) != reachableT->end()) {
             fOut << "1 " << htn->taskNames[i] << endl;
             check++;
         }
@@ -192,11 +217,11 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     fOut << old2new[htn->initialTask] << endl;
 
     fOut << endl << ";; methods" << endl;
-    int numMethods = htn->numMethods + prefix.size() - unreachableM->size();
+    int numMethods = reachableM->size() + prefix.size();
     fOut << numMethods << endl;
     check = 0;
     for (int i = 0; i < htn->numMethods; i++) {
-        if(unreachableM->find(i) == unreachableM->end()) {
+        if (reachableM->find(i) != reachableM->end()) {
             fOut << htn->methodNames[i] << endl;
             fOut << old2new[htn->decomposedTask[i]] << endl;
             for (int j = 0; j < htn->numSubTasks[i]; j++) {
@@ -212,9 +237,9 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     }
 
     // methods from new abstract tasks to prefix copies
-    for(int i = 0; i < prefix.size(); i++) {
+    for (int i = 0; i < prefix.size(); i++) {
         int a = prefix[i];
-        fOut <<  "__<method2pref" << i << ">" << htn->taskNames[a] << endl;
+        fOut << "__<method2pref" << i << ">" << htn->taskNames[a] << endl;
         fOut << prim2abs[a] << endl;
         fOut << i << " -1" << endl;
         fOut << "-1" << endl; // ordering relations
