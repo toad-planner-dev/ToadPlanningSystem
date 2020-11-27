@@ -2410,6 +2410,18 @@ void Model::calcSCCs() {
 		j++;
 	}
 
+	/*
+	for(int i = 0; i < numSCCs; i++) {
+	    if(sccSize[i] > 1) {
+	        cout << "SCC" << i << " = {";
+	        for(int j = 0; j < sccSize[i]; j++) {
+                int task = sccToTasks[i][j];
+                cout << task << " (" << taskToSCC[task] << ") ";
+            }
+	        cout << "}" << endl;
+        }
+    }*/
+
 	delete[] U;
 	delete S;
 	delete[] containedS;
@@ -2429,15 +2441,12 @@ void Model::tarjan(int v) {
 	for (int iM = 0; iM < numMethodsForTask[v]; iM++) { // iterate methods
 		int m = taskToMethods[v][iM];
 		for (int iST = 0; iST < numSubTasks[m]; iST++) { // iterate subtasks -> these are the adjacent nodes
-			int v2 = subTasks[m][iST];
-			if (U[v2]) {
-				tarjan(v2);
-				if (lowlink[v] > lowlink[v2]) {
-					lowlink[v] = lowlink[v2];
-				}
-			} else if (containedS[v2]) {
-				if (lowlink[v] > dfsI[v2])
-					lowlink[v] = dfsI[v2];
+			int w = subTasks[m][iST];
+			if (U[w]) {
+				tarjan(w);
+                lowlink[v] = min(lowlink[v], lowlink[w]);
+			} else if (containedS[w]) {
+                lowlink[v] = min(lowlink[v], dfsI[w]);
 			}
 		}
 	}
@@ -2449,6 +2458,9 @@ void Model::tarjan(int v) {
 			S->pop_back();
 			containedS[v2] = false;
 			taskToSCC[v2] = numSCCs;
+//			if (v2 == 64031) {
+//			    cout << "hier! " << v << " " << v2 << endl;
+//            }
 		} while (v2 != v);
 		numSCCs++;
 	}

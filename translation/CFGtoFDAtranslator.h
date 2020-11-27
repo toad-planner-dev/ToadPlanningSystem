@@ -19,20 +19,17 @@ struct grRule {
     int rLength = 0; // length of right-hand side
     bool isLeftGenerating = false;
     bool isRightGenerating = false;
+    int rSymbolsSet = 0;
 };
 
 
 class CFGtoFDAtranslator {
     // temporal variables
     //int *qB; // variable used in algorithm to store newly added ids
-    unordered_map<int, int> qB;
-    vector<grRule *> tempRules;
 
     int isTerminalSym(int a);
 
     vector<int> *copySubSeq(grRule *in, int from, int to);
-
-    //int getNewState(int *NiS, int size, int *qB, int C) const;
 
     int compareRules(grRule *a, grRule *b);
 
@@ -41,6 +38,8 @@ class CFGtoFDAtranslator {
     void sortRules();
 
 public:
+    virtual ~CFGtoFDAtranslator();
+
     // consts naming recursions of Ni
     const int recUnknown = 0;
     const int recLeft = 1;
@@ -50,7 +49,6 @@ public:
 
     // const for epsilon symbol
     const int Epsilon = -1;
-
 
     // grammar definition
     int numSymbols = 0;
@@ -65,13 +63,13 @@ public:
 
     // partitions
     int NumNis;   // number of partitions
-    int *NiSize;  // size of single partition
-    int **Ni;     // partitions
-    int *SymToNi; // mapping from symbol to Ni it belongs tos
-    int *NiRec;   // kind of recursion out of [recLeft, recRight, recSelf, recCycle]
+    int *NiSize = nullptr;  // size of single partition
+    int **Ni = nullptr;     // partitions
+    int *SymToNi = nullptr; // mapping from symbol to Ni it belongs tos
+    int *NiRec = nullptr;   // kind of recursion out of [recLeft, recRight, recSelf, recCycle]
 
     // resulting finite automaton
-    FiniteAutomaton* dfa = new FiniteAutomaton;
+    FiniteAutomaton *dfa = new FiniteAutomaton;
 
     void addRule(std::vector<int> *pInt);
 
@@ -89,6 +87,14 @@ public:
     void quick(int l, int r);
 
     int divide(int l, int r);
+
+    void initDataStructures();
+
+    void calcSCCs();
+
+    void tarjan(int v);
+
+    vector<grRule *> tempRules;
 };
 
 

@@ -31,8 +31,8 @@ string StringUtil::cleanStr(string s){
     if(s == "none-of-them") {
         return "<none of those>";
     }
-    if(!this->doCleaning)
-        return s;
+    //if(!this->doCleaning)
+    //    return s;
 
 	std::string str = s;
 	//std::replace(str.begin(), str.end(), ']', ')');

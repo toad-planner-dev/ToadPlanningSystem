@@ -45,8 +45,8 @@ private:
 	void printActions();
 	void printAction(int i);
 	void printMethods();
-	void printMethod(int i);
-	void readClassical(std::istream& domainFile);
+
+    void readClassical(std::istream& domainFile);
 	void readHierarchical(std::istream& domainFile);
 	void generateVectorRepresentation();
 
@@ -238,6 +238,8 @@ public:
 	int** reachable = nullptr;
 
 	void writeToPDDL(string dName, string pName);
-};
+
+        void printMethod(int i);
+    };
 }
 #endif /* MODEL_H_ */

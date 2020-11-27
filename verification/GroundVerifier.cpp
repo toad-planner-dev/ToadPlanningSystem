@@ -22,19 +22,39 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     }
 
     std::ifstream fIn(sasPlan);
-    std::string line;
+
     vector<int> prefix;
     set<int> distinctActions;
     StringUtil su;
+    vector<string> plan;
+    std::string line;
     while (std::getline(fIn, line)) {
+        int i = line.find(")(");
+        while(i != std::string::npos) {
+            string action = line.substr(0, i + 1);
+            line = line.substr(i+1, line.length());
+            plan.push_back(action);
+            i = line.find(")(");
+        }
+        plan.push_back(line);
+    }
+    for(int i = 0; i < plan.size(); i++) {
+        line = plan[i];
+        //cout << line << endl;
         if (line.rfind(';') == 0) continue;
-        if (line.rfind("epsilon") == 0) continue;
         line = line.substr(1, line.length() - 2);
+        if (line.rfind("epsilon") == 0) continue;
+
+        //cout << line << endl;
         bool found = false;
         for (int i = 0; i < htn->numTasks; i++) {
-            if (line.compare(su.cleanStr(htn->taskNames[i])) == 0) {
+            if (line.compare(htn->taskNames[i]) == 0) {
                 prefix.push_back(i);
                 distinctActions.insert(i);
+                if(found) {
+                    cout << "found task twice: " << htn->taskNames[i] << endl;
+                    exit(-1);
+                }
                 found = true;
                 break;
             }
@@ -46,10 +66,18 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
     }
     fIn.close();
 
+    cout << "- detecting unreachable tasks bottom-up" << endl;
     set<int> *unreachableT = new set<int>;
     set<int> *unreachableM = new set<int>;
     set<int> *newlyUnrT = new set<int>;
     set<int> *newlyUnrM = new set<int>;
+
+    // methods for tasks
+    int* mForT = new int[htn->numTasks];
+    for(int i = htn->numActions; i < htn->numTasks; i++) {
+        mForT[i] = htn->numMethodsForTask[i];
+    }
+
     for (int a = 0; a < htn->numActions; a++) {
         if (distinctActions.find(a) == distinctActions.end()) {
             newlyUnrT->insert(a);
@@ -68,23 +96,19 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
         }
         newlyUnrT->clear();
         for (int m : *newlyUnrM) {
-            int t = htn->decomposedTask[m];
-            bool oneleft = false;
-            for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
-                int m2 = htn->taskToMethods[t][mi];
-                if (unreachableM->find(m2) == unreachableM->end()) {
-                    oneleft = true;
-                    break;
-                }
-            }
-            if (!oneleft) {
-                newlyUnrT->insert(t);
-                unreachableT->insert(t);
+            int dt = htn->decomposedTask[m];
+            mForT[dt]--;
+            if (mForT[dt] == 0) {
+                newlyUnrT->insert(dt);
+                unreachableT->insert(dt);
             }
         }
         newlyUnrM->clear();
     }
+    delete [] mForT;
+
     // test top-down reachability
+    cout << "- detecting top-down reachable tasks" << endl;
     set<int> *reachableT = new set<int>;
     set<int> *reachableM = new set<int>;
     vector<int> fringe;
@@ -110,6 +134,7 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
         }
     }
 
+    cout << "- writing verify problem" << endl;
     // prepare things
     int numNewBits = prefix.size() + 2;
 
@@ -211,7 +236,10 @@ void GroundVerifier::verify(progression::Model *htn, string sasPlan) {
         fOut << "1 <abs>" << htn->taskNames[t] << endl;
         check++;
     }
-    assert(check == numTasks);
+    if (check != numTasks) {
+        cout << "ERROR: creation of verify problem failed" << endl;
+        exit(-1);
+    }
 
     fOut << endl << ";; initial abstract task" << endl;
     fOut << old2new[htn->initialTask] << endl;

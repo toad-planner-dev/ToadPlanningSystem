@@ -7,12 +7,15 @@
 
 
 #include <iostream>
+#include <map>
 #include "../htnModel/Model.h"
 
 class TailRecAnalysis {
 
 public:
-    void analyse(Model *htn, string basicString);
+    void analyse(Model *htn);
+
+    void add(map<int, set<int> *> *map, int dec, int subt);
 };
 
 

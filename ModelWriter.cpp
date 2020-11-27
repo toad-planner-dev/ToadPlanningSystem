@@ -14,7 +14,6 @@ void ModelWriter::write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, 
     this->dfa = automaton;
 
     if (writePDDL) {
-        this->su.doCleaning = true;
         ofstream dfile;
         cout << "- writing domain file" << endl;
         dfile.open(dName);
@@ -62,17 +61,16 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
         os << "-1\n"; // axiom layer
         if (isBoolean[i]) {
             os << "2\n";
-            os << "Atom " << su.cleanStr(m->factStrs[m->firstIndex[i]]) << "\n";
+            os << "Atom " << sasCleanStr(m->factStrs[m->firstIndex[i]]) << "\n";
             os << "<none of those>\n";
         } else {
             os << (m->lastIndex[i] - m->firstIndex[i] + 1) << "\n";
             for (int j = m->firstIndex[i]; j <= m->lastIndex[i]; j++) {
-                string atom = su.cleanStr(m->factStrs[j]);
-                if (atom == "<none of those>") {
-                    os << atom << "\n";
-                } else {
-                    os << "Atom " << atom << "\n";
+                string atom = sasCleanStr(m->factStrs[j]);
+                if (atom != "<none of those>") {
+                    os << "Atom ";
                 }
+                os << atom << "\n";
             }
         }
         os << "end_variable\n";
@@ -109,8 +107,13 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
         s0[var] = val - m->firstIndex[var];
     }
     for (int i = 0; i < m->numVars; i++) {
-        if (isBoolean[i] && (s0[i] == -1)) { // it is not set -> set to <none of those>
-            s0[i] = 1;
+        if (s0[i] == -1) {
+            if (isBoolean[i]) { // it is not set -> set to <none of those>
+                s0[i] = 1;
+            } else {
+                cout << "error: non-boolean variable not set in s0\n";
+                exit(-1);
+            }
         }
     }
     for (int i = 0; i < m->numVars; i++) {
@@ -145,14 +148,15 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
     os << numActions << "\n";
 
     // write actions
-    int varPrec[m->numVars];
-    int varAdd[m->numVars];
-    int varDel[m->numVars];
+    int* varPrec = new int[m->numVars];
+    int* varAdd = new int[m->numVars];
+    int* varDel = new int[m->numVars];
     for (int i = 0; i < m->numVars; i++) {
         varPrec[i] = -1;
         varAdd[i] = -1;
         varDel[i] = -1;
     }
+    int check = 0;
     vector<int> prevail;
     vector<int> effect;
     for (int i = 0; i < m->numActions; i++) {
@@ -170,9 +174,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
             cout << "error: two values of same sas+ variable are in effect of action " << m->taskNames[i] << endl;
             exit(-1);
         }
-        //if (getSASVal(varDel, m->delLists[i], m->numDels[i])) {
-        //    cout << "warning: two values of same sas+ variable are in del effect of action " << m->taskNames[i] << endl;
-        //}
+        getSASVal(varDel, m->delLists[i], m->numDels[i]);
         /*
         for(int v = 0; v < m->numVars; v++) {
             if ((varPrec[v] != -1)||(varDel[v] != -1)||(varDel[v] != -1)) {
@@ -262,6 +264,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
         for (auto extra : *extraStuff->at(i)) {
             int from = extra.first;
             for (int to : *extra.second) {
+                check++; // count actions actually written
                 int numPrevail = prevail.size() / 2;
                 int numEffect = (effect.size() / 4);
                 if (from != to) {
@@ -294,6 +297,8 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
         for (auto extra : *extraStuff->at(-1)) {
             int from = extra.first;
             for (int to : *extra.second) {
+                assert (from != to);
+                check++; // count actions actually written
                 os << "begin_operator\n";
                 os << "epsilon\n";
                 os << 0 << "\n"; // prevail constraints
@@ -305,6 +310,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
         }
     }
     os << 0 << "\n";
+    assert(check == numActions);
 }
 
 void ModelWriter::writeDomain(ostream &os) {
@@ -498,4 +504,11 @@ void ModelWriter::writeEpsilonActionCF(ostream &os, set<pair<int, int> *> *cfSet
     }
     os << "    )" << endl;
     os << "   )" << endl << endl;
+}
+
+string ModelWriter::sasCleanStr(string s) {
+    if(s == "none-of-them") {
+        return "<none of those>";
+    }
+    return s;
 }

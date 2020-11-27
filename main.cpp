@@ -7,6 +7,8 @@
 #include "verification/GroundVerifier.h"
 #include "translation/TailRecAnalysis.h"
 #include "optimization/DFAMinimization.h"
+#include "translation/CFtoRegGrammarEnc.h"
+#include "ChainWriter.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -69,13 +71,15 @@ int main(int argc, char *argv[]) {
     htn->filename = s;
     htn->read(s);
     //assert(htn->isHtnModel);
-    htn->calcSCCs();
+    if (!verify) {
+        htn->calcSCCs();
+    }
     gettimeofday(&tp, NULL);
 
     if (determineIfTR) {
         TailRecAnalysis tra;
         string filename = "/home/dh/Dokumente/versioniert/Source-Code/TOAD-Source/examples/testTR.lp";
-        tra.analyse(htn, filename);
+        tra.analyse(htn);
         exit(0);
     }
 
@@ -131,10 +135,17 @@ int main(int argc, char *argv[]) {
         to2s->addRule(rule);
     }
     cout << "Analysing rules" << endl;
+    to2s->initDataStructures();
     to2s->analyseRules();
     int S = htn->initialTask;
     if (!to2s->isRegurlar) {
-        return -7;
+        exit(-17);
+        CFtoRegGrammarEnc approx;
+        //approx.underapproximate(to2s, htn);
+        approx.overapproximate(to2s, htn);
+        to2s->calcSCCs();
+        cout << "Re-Analysing rules" << endl;
+        to2s->analyseRules();
     }
 
     cout << "Creating DFA" << endl;
@@ -156,16 +167,18 @@ int main(int argc, char *argv[]) {
     DFAMinimization mini;
     mini.minimize(htn, to2s->dfa, to2s->dfa->startState, to2s->dfa->finalState);
     cout << "done!" << endl;
+
+    cout << "Performing delete-relaxed forward reachability analysis" << endl;
+    RPGReachability *rpg = new RPGReachability(htn);
+    rpg->computeReachability(to2s->dfa);
     */
-    //cout << "Performing delete-relaxed forward reachability analysis" << endl;
-    //RPGReachability *rpg = new RPGReachability(htn);
-    //rpg->computeReachability(to2s->dfa);
 
     cout << "Creating output model" << endl;
     string dFile = "domain.pddl";
     string pFile = "problem.sas";
 
-    ModelWriter mw;
+    //ModelWriter mw;
+    ChainWriter mw;
     bool writePDDL = false; // PDDL or SAS+
     if (writePDDL)
         cout << "- Writing PDDL representation. [writer=PDDL]" << endl;
@@ -176,9 +189,12 @@ int main(int argc, char *argv[]) {
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timeWritingModel=" << (endT - startT) << "]" << endl;
     cout << "- [timeTotal=" << (endT - startTotal) << "]" << endl;
+    //delete to2s;
 
     cout << "Finished!" << endl;
+
     //mw.dfa->print(htn->taskNames, 0, 1);
+    delete htn;
 
     //to2s->dfa.print(htn->taskNames, startState, finalState);
     return 0;

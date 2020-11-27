@@ -7,8 +7,9 @@
 #include <vector>
 
 void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
-    if ((alpha == -1) && (q0 == q1))
-        return;
+    if (alpha == -1)
+        if(q0 == q1)
+            return;
     set<int> *labels;
     if (fda2.find(q0) == fda2.end()) {
         fda2[q0] = new unordered_map<int, set<int>*>;
@@ -25,31 +26,42 @@ void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
     labels->insert(alpha);
 }
 
-/*
+
 void FiniteAutomaton::print(string *pVector, int start, int final) {
+    unordered_map<Pair*, set<int>*, pairHash, pairComp> g;
+    bool showlabels = false;
     cout << "digraph G {" << endl;
-    for (auto &it: fda) {
-        Pair *p = it.first;
-        set<int> *labels = it.second;
-        cout << "    n" << p->from << " -> n" << p->to << " [label=\"";
-        bool first = true;
-        for (int l : *labels) {
-            if (first){
-                first = false;
-            } else {
-                cout << " OR ";
+    for (auto &it: fda2) {
+        int from = it.first;
+        for (auto &it2: *it.second) {
+            int to = it2.first;
+            set<int> *labels = it2.second;
+            cout << "    n" << from << " -> n" << to;
+            cout << " [label=\"";
+
+            bool first = true;
+            for (int l : *labels) {
+                if (first) {
+                    first = false;
+                } else {
+                    cout << "; ";
+                }
+                if (showlabels) {
+                    if (l == -1) {
+                        cout << "Epsilon";
+                    } else {
+                        cout << pVector[l];
+                    }
+                } else {
+                    cout << l;
+                }
             }
-            if (l == -1) {
-                cout << "Epsilon";
-            } else {
-                cout << pVector[l];
-            }
+
+            cout << "\"];" << endl;
         }
-        cout << "\"];" << endl;
     }
     cout << "}" << endl;
 }
-*/
 
 unordered_map<int, unordered_map<int, set<int> *> *> * FiniteAutomaton::getActionMap() {
     if(!actionMapDone) {
@@ -75,4 +87,20 @@ unordered_map<int, unordered_map<int, set<int> *> *> * FiniteAutomaton::getActio
         actionMapDone = true;
     }
     return this->actionMap;
+}
+
+FiniteAutomaton::~FiniteAutomaton() {
+/*
+    #ifndef NDEBUG
+
+
+    for (pair<int, unordered_map<int, set<int>*>*> i=fda2.begin(); i != fda2.end(); i++)
+    fda2.begin().
+    for(x = fda2.begin()) {
+        for(auto y : fda2) {
+            delete y.second;
+        }
+        delete x.second;
+    }
+#endif*/
 }

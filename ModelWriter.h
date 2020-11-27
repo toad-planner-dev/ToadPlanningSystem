@@ -35,6 +35,8 @@ public:
     FiniteAutomaton *dfa;
 
     void writeSASPlus(ostream &os, unordered_map<int, unordered_map<int, set<int> *> *> *extraStuff);
+
+    string sasCleanStr(string s);
 };
 
 

@@ -15,6 +15,7 @@ using namespace std;
 class FiniteAutomaton {
 
 public:
+    virtual ~FiniteAutomaton();
     void addRule(int q0, int alpha, int q1);
     void print(string *pVector, int i, int i1);
     //unordered_map<Pair*, set<int>*, pairHash, pairComp> fda;
