@@ -53,26 +53,23 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
             unordered_map<int, int> qB;
             for (int j = 0; j < NiSize[Nl]; j++) {
                 int task = Ni[Nl][j];
-                //if (task != A) {
                 int id = this->dfa->stateID++;
                 qB[task] = id;
-                //cout << task << " -> " << id << endl;
-                //}
             }
 
             // left recursion
             if (NiRec[Nl] == recLeft) {
-                //qB[A] = q1;
                 // iterate rules that decompose some C belonging to the same partition
                 for (int i = 0; i < NiSize[Nl]; i++) {
                     int C = Ni[Nl][i]; // left-hand side
                     int qC = qB[C];
-                    //cout << "C: " << C << endl;
                     for (int l = rFirst[C]; l <= rLast[C]; l++) {
                         grRule *rule = rules[l];
-                        //printRule(rule);
                         int D = rule->right[0]; // first right-hand side
-                        int Nk = SymToNi[D];
+                        int Nk = -1;
+                        if (D >= 0) {
+                            Nk = SymToNi[D];
+                        }
                         if (Nk != Nl) {
                             makeFA(q0, copySubSeq(rule, 0, rule->rLength), qC);
                         } else {
@@ -84,18 +81,18 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
                 int qA = qB[A];
                 dfa->addRule(qA, Epsilon, q1);
             } else { // right or cyclic
-                //qB[A] = q0;
                 // iterate rules that decompose some C belonging to the same partition
                 for (int i = 0; i < NiSize[Nl]; i++) {
                     int C = Ni[Nl][i]; // left-hand side
                     int qC = qB[C];
 
                     for (int l = rFirst[C]; l <= rLast[C]; l++) {
-                        //cout << "rule for " << C << endl;
                         grRule *rule = rules[l];
-                        //printRule(rule);
                         int D = rule->right[rule->rLength - 1]; // last right-hand side
-                        int Nk = SymToNi[D];
+                        int Nk = -1;
+                        if(D >= 0) {
+                            Nk = SymToNi[D];
+                        }
                         if (Nk != Nl) {
                             makeFA(qC, copySubSeq(rule, 0, rule->rLength), q1);
                         } else {
@@ -110,33 +107,18 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
         } else { // a non-recursive non-terminal
             for (int l = rFirst[A]; l <= rLast[A]; l++) {
                 grRule *rule = rules[l];
-                //printRule(rule);
                 makeFA(q0, copySubSeq(rule, 0, rule->rLength), q1);
             }
         }
     }
 }
 
-/*
-int CFGtoFDAtranslator::getNewState(int *NiS, int size, int *qB, int C) const {
-    for (int i = 0; i < size; i++) {
-        if (NiS[i] == C) {
-            return qB[i];
-        }
-    }
-    assert(false);
-    return -1;
-}
-*/
 int CFGtoFDAtranslator::isTerminalSym(int a) {
     return (a != Epsilon) && (a < this->numTerminals);
 }
 
 vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
     vector<int> *out = new vector<int>;
-    if((from == 0) && (to == 0)){
-
-    }
     assert(from >= 0);
     assert(from < to);
     assert(from < in->rLength);
@@ -150,10 +132,6 @@ vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
 
 void CFGtoFDAtranslator::sortRules() {
     quick(0, numRules - 1);
-    /*
-    for(int i = 0; i < numRules; i++) {
-        printRule(rules[i]);
-    }*/
 }
 
 void CFGtoFDAtranslator::quick(int l, int r) {
@@ -190,13 +168,14 @@ int CFGtoFDAtranslator::divide(int l, int r) {
 }
 
 void CFGtoFDAtranslator::initDataStructures() {
+    /*
     cout << "- starting grammar simplification" << endl;
 
     // symbol to rules that decompose it
-    map<int, vector<grRule*>*>* rulesDecomposing = new map<int, vector<grRule*>*>;
+    map<int, vector<grRule *> *> *rulesDecomposing = new map<int, vector<grRule *> *>;
 
     // symbol to rules it is contained in the right side
-    map<int, vector<grRule*>*>* containedInRight = new map<int, vector<grRule*>*>;
+    map<int, vector<grRule *> *> *containedInRight = new map<int, vector<grRule *> *>;
 
     // symbols that can be decomposed into an epsilon
     set<int> symBoldWithEpsilonRules;
@@ -206,54 +185,54 @@ void CFGtoFDAtranslator::initDataStructures() {
     for (int i = 0; i < tempRules.size(); i++) {
         grRule *r = tempRules[i];
         r->rSymbolsSet = 0;
-        if(r->rLength == 0) {
+        if (r->rLength == 0) {
             symBoldWithEpsilonRules.insert(r->left);
         }
 
         int sym = r->left;
-        if(rulesDecomposing->find(sym) == rulesDecomposing->end()) {
-            rulesDecomposing->insert({sym, new vector<grRule*>});
+        if (rulesDecomposing->find(sym) == rulesDecomposing->end()) {
+            rulesDecomposing->insert({sym, new vector<grRule *>});
         }
         rulesDecomposing->at(sym)->push_back(r);
 
         onlyOnce.clear();
-        for(int j = 0; j < r->rLength; j++) {
+        for (int j = 0; j < r->rLength; j++) {
             sym = r->right[j];
-            if(onlyOnce.find(sym) != onlyOnce.end()) {
+            if (onlyOnce.find(sym) != onlyOnce.end()) {
                 continue;
             }
             r->rSymbolsSet++;
-            if(containedInRight->find(sym) == containedInRight->end()) {
-                containedInRight->insert({sym, new vector<grRule*>});
+            if (containedInRight->find(sym) == containedInRight->end()) {
+                containedInRight->insert({sym, new vector<grRule *>});
             }
             containedInRight->at(sym)->push_back(r);
         }
     }
 
-    if(symBoldWithEpsilonRules.size() > 0) {
+    if (symBoldWithEpsilonRules.size() > 0) {
         cout << "- deleting epsilon rules" << endl;
         for (int s : symBoldWithEpsilonRules) {
-            if(containedInRight->find(s) == containedInRight->end()) {
+            if (containedInRight->find(s) == containedInRight->end()) {
                 continue;
             }
-            vector<grRule*> *R = rulesDecomposing->at(s);
+            vector<grRule *> *R = rulesDecomposing->at(s);
             bool onlyDeleted = true;
             for (int i = 0; i < R->size(); i++) {
-                if(R->at(i)->rLength > 0) {
+                if (R->at(i)->rLength > 0) {
                     onlyDeleted = false;
                     break;
                 }
             }
-            if(onlyDeleted) { // just
+            if (onlyDeleted) { // just
 
             }
 
-            vector<grRule*>* rules = containedInRight->at(s);
-            for(int i = 0; i < rules->size(); i++) {
+            vector<grRule *> *rules = containedInRight->at(s);
+            for (int i = 0; i < rules->size(); i++) {
                 grRule *r = rules->at(i);
-                vector<grRule*> multiply;
+                vector<grRule *> multiply;
                 multiply.push_back(r);
-                for(int j = 0; j < r->rLength; j++) {
+                for (int j = 0; j < r->rLength; j++) {
                     //if()
                 }
             }
@@ -261,12 +240,18 @@ void CFGtoFDAtranslator::initDataStructures() {
     } else {
         cout << "- no epsilon rules in grammar" << endl;
     }
-
+*/
     // copy rules
     this->numRules = tempRules.size();
     rules = new grRule *[numRules];
     for (int i = 0; i < tempRules.size(); i++) {
-        rules[i] = tempRules.at(i);
+        grRule* r =tempRules.at(i);
+        if(r->rLength == 0) {
+            r->rLength = 1;
+            r->right = new int[1];
+            r->right[0] = -1;
+        }
+        rules[i] = r;
     }
 
     cout << "- sorting rules...";
@@ -294,23 +279,9 @@ void CFGtoFDAtranslator::initDataStructures() {
         }
     }
     rLast[rules[numRules - 1]->left] = numRules - 1;
-
-    /*
-    for(int i = 0; i< numRules; i++) {
-        printRule(rules[i]);
-    }
-    for(int i = 0; i < numSymbols; i++) {
-        cout << "i=" << i << " " << rFirst[i] << " -> " << rLast[i] << endl;
-    }*/
 }
 
-//int* isLgNi;
-//int* isRgNi;
-
-void CFGtoFDAtranslator::analyseRules() {
-//    isLgNi = new int[NumNis];
-//    isRgNi = new int[NumNis];
-
+void CFGtoFDAtranslator::analyseRules(bool writeProtocol) {
     cout << "- analysing recursion...";
     // check recursion structure of single rules
     for (int i = 0; i < numRules; i++) {
@@ -387,50 +358,68 @@ void CFGtoFDAtranslator::analyseRules() {
         } else {
             //cout << "???";
         }
+        /*
         for (int j = 0; j < NiSize[i]; j++) {
-            //cout << " " << Ni[i][j];
+            cout << " " << Ni[i][j];
         }
-        //cout << endl;
+        cout << endl;
+         */
     }
 
-    cout << "- recursive structure:";
+    if (writeProtocol)
+        cout << "- recursive structure:";
+    if (writeProtocol) cout << " [";
     if (containsRR) {
-        cout << " [rrec=yes]";
+        cout << "rrec=yes";
     } else {
-        cout << " [rrec=no]";
+        cout << "rrec=no";
     }
+    if (writeProtocol) cout << "] [";
+    else cout << " ";
     if (containsLR) {
-        cout << " [lrec=yes]";
+        cout << "lrec=yes";
     } else {
-        cout << " [lrec=no]";
+        cout << "lrec=no";
     }
+    if (writeProtocol) cout << "] [";
+    else cout << " ";
     if (containsSelf) {
-        cout << " [srec=yes]";
+        cout << "srec=yes";
     } else {
-        cout << " [srec=no]";
+        cout << "srec=no";
     }
+    if (writeProtocol) cout << "] [";
+    else cout << " ";
     if (containsCyclic) {
-        cout << " [crec=yes]";
+        cout << "crec=yes";
     } else {
-        cout << " [crec=no]";
+        cout << "crec=no";
     }
+    if (writeProtocol) cout << "]";
     cout << endl;
 
     cout << "- instance properties:" << endl;
     if (NumNis == 0) {
-        cout << "  - the instance is acyclic. [rec=acyclic]" << endl;
+        cout << "  - the instance is acyclic.";
+        if (writeProtocol) cout << " [rec=acyclic]";
+        cout << endl;
         cout << "  - using exact translation." << endl;
         this->isRegurlar = true;
     } else if (isRegular) {
-        cout << "  - the instance is recursive, but not self-embedding, i.e. it is regular. [rec=nonSelfEmbedding]"
-             << endl;
-        cout << "  - using exact translation. [alg=exact]" << endl;
+        cout << "  - the instance is recursive, but not self-embedding, i.e. it is regular.";
+        if (writeProtocol) cout << " [rec=nonSelfEmbedding]";
+        cout << endl;
+        cout << "  - using exact translation.";
+        if (writeProtocol) cout << " [alg=exact]";
+        cout << endl;
         this->isRegurlar = true;
     } else {
-        cout
-                << "  - the instance is recursive and self-embedding, i.e. it could not be shown that it is regular. [rec=selfEmbedding]"
-                << endl;
-        cout << "  - using approximate translation. [alg=approximate]" << endl;
+        cout << "  - the instance is recursive and self-embedding, i.e. it could not be shown that it is regular.";
+        if (writeProtocol) cout << " [rec=selfEmbedding]";
+        cout << endl;
+        cout << "  - using approximate translation.";
+        if (writeProtocol) cout << " [alg=approximate]";
+        cout << endl;
         this->isRegurlar = false;
     }
 }
@@ -454,7 +443,10 @@ void CFGtoFDAtranslator::determineRuleRecursion(grRule *r) {
     }
     for (int j = 0; j < r->rLength; j++) {
         int rSym = r->right[j];
-        int Nj = this->SymToNi[rSym];
+        int Nj = -1;
+        if (rSym >= 0) {
+            Nj = this->SymToNi[rSym];
+        }
         if (Ni == Nj) {
             if (j > 0) {
                 r->isLeftGenerating = true;
@@ -499,7 +491,7 @@ int *sccSize;
 int numCyclicSccs;
 int **sccToSym;
 
-void CFGtoFDAtranslator::calcSCCs() {
+void CFGtoFDAtranslator::calcSCCs(int tinit) {
     cout << "- calculating SCCs..." << endl;
     maxdfs = 0;
     U = new bool[numSymbols];
@@ -515,7 +507,7 @@ void CFGtoFDAtranslator::calcSCCs() {
         SymToNi[i] = -1;
     }
 
-    tarjan(0); // this works only if there is a single initial task and all tasks are connected to to that task
+    tarjan(tinit); // this works only if there is a single initial task and all tasks are connected to to that task
 
     sccSize = new int[numSCCs];
     for (int i = 0; i < numSCCs; i++)
@@ -626,12 +618,13 @@ void CFGtoFDAtranslator::tarjan(int v) {
 
     if (rFirst[v] >= 0) {
         for (int i = rFirst[v]; i <= rLast[v]; i++) { // iterate rules
-            assert(i > 0);
+            assert(i >= 0);
             assert(i < numRules);
             grRule *r = rules[i];
             for (int j = 0; j < r->rLength; j++) {
                 int w = r->right[j];
-                assert(w >= 0);
+                if(w < 0)
+                    continue; // epsilon transition
                 if (U[w]) {
                     tarjan(w);
                     lowlink[v] = min(lowlink[v], lowlink[w]);
@@ -656,7 +649,7 @@ void CFGtoFDAtranslator::tarjan(int v) {
 
 CFGtoFDAtranslator::~CFGtoFDAtranslator() {
     delete[] NiSize;
-    for(int i = 0; i < numCyclicSccs; i++) {
+    for (int i = 0; i < numCyclicSccs; i++) {
         delete[] Ni[i];
     }
     delete[] Ni;

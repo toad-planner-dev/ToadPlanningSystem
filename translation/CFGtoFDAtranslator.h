@@ -73,7 +73,7 @@ public:
 
     void addRule(std::vector<int> *pInt);
 
-    void analyseRules();
+    void analyseRules(bool writeProtocol);
 
     void makeFA(int q0, vector<int> *alpha, int q1);
 
@@ -90,7 +90,7 @@ public:
 
     void initDataStructures();
 
-    void calcSCCs();
+    void calcSCCs(int i);
 
     void tarjan(int v);
 

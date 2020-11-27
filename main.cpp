@@ -70,7 +70,6 @@ int main(int argc, char *argv[]) {
     Model *htn = new Model();
     htn->filename = s;
     htn->read(s);
-    //assert(htn->isHtnModel);
     if (!verify) {
         htn->calcSCCs();
     }
@@ -136,16 +135,18 @@ int main(int argc, char *argv[]) {
     }
     cout << "Analysing rules" << endl;
     to2s->initDataStructures();
-    to2s->analyseRules();
+    to2s->analyseRules(true);
     int S = htn->initialTask;
     if (!to2s->isRegurlar) {
-        exit(-17);
         CFtoRegGrammarEnc approx;
-        //approx.underapproximate(to2s, htn);
+        cout << "- re-encode rules" << endl;
         approx.overapproximate(to2s, htn);
-        to2s->calcSCCs();
-        cout << "Re-Analysing rules" << endl;
-        to2s->analyseRules();
+        cout << "- init data structures" << endl;
+        to2s->initDataStructures();
+        cout << "- calc SCCs" << endl;
+        to2s->calcSCCs(htn->initialTask);
+        cout << "- re-analysing rules" << endl;
+        to2s->analyseRules(false);
     }
 
     cout << "Creating DFA" << endl;
@@ -177,8 +178,8 @@ int main(int argc, char *argv[]) {
     string dFile = "domain.pddl";
     string pFile = "problem.sas";
 
-    //ModelWriter mw;
-    ChainWriter mw;
+    ModelWriter mw;
+    //ChainWriter mw;
     bool writePDDL = false; // PDDL or SAS+
     if (writePDDL)
         cout << "- Writing PDDL representation. [writer=PDDL]" << endl;

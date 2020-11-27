@@ -11,11 +11,8 @@
 class CFtoRegGrammarEnc {
 
 public:
-    void underapproximate(CFGtoFDAtranslator *g, Model *htn);
 
     grRule *rOneToOne(int from, int to);
-
-    bool elem(int *pInt, int i, int i1);
 
     void overapproximate(CFGtoFDAtranslator *pAtranslator, Model *pModel);
 
