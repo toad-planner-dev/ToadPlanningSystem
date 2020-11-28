@@ -240,6 +240,8 @@ public:
 	void writeToPDDL(string dName, string pName);
 
         void printMethod(int i);
+
+        void printTDG();
     };
 }
 #endif /* MODEL_H_ */

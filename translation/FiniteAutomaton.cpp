@@ -29,7 +29,7 @@ void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
 
 void FiniteAutomaton::print(string *pVector, int start, int final) {
     unordered_map<Pair*, set<int>*, pairHash, pairComp> g;
-    bool showlabels = false;
+    bool showlabels = true;
     cout << "digraph G {" << endl;
     for (auto &it: fda2) {
         int from = it.first;

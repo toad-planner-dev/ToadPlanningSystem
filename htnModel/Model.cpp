@@ -1902,12 +1902,14 @@ void Model::readHierarchical(istream& domainFile) {
 		delete sStream;
 		getline(domainFile, line);
 		subTasks[i] = readIntList(line, numSubTasks[i]);
+
+		/*
 		if (numSubTasks[i] == 0) {
 			cout << "Search engine: Method " << methodNames[i]
 					<< " has no subtasks - please compile this away before search."
 					<< endl;
 			exit(-1);
-		}
+		}*/
 #ifndef NDEBUG
 		for (int j = 0; j < numSubTasks[i]; j++) {
 			assert(subTasks[i][j] < numTasks);
@@ -2915,6 +2917,26 @@ void Model::calcMinimalImpliedX() {
 	}
         pfile << ")" << endl;
         pfile.close();
+    }
+
+    void Model::printTDG() {
+        cout << "digraph G {" << endl;
+        for(int i = 0; i <numTasks; i++) {
+            cout << "    n" << i << " [label=\"" << this->taskNames[i] << "\"]" << endl;
+        }
+        for(int i = 0; i <numMethods; i++) {
+            cout << "    m" << i << endl;
+        }
+        for(int i = 0; i < numMethods; i++) {
+            int d = decomposedTask[i];
+            cout << "    n" << d << " -> m" << i << ";" << endl;
+            for(int j = 0; j < numSubTasks[i]; j++) {
+                int st = subTasks[i][j];
+                cout << "    m" << i << " -> n" << st << ";" << endl;
+            }
+        }
+
+        cout << "}" << endl;
     }
 }
 /* namespace progression */

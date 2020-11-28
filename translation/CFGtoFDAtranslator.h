@@ -20,13 +20,12 @@ struct grRule {
     bool isLeftGenerating = false;
     bool isRightGenerating = false;
     int rSymbolsSet = 0;
+    int temp = 0;
+    bool markedForDelete = false;
 };
 
 
 class CFGtoFDAtranslator {
-    // temporal variables
-    //int *qB; // variable used in algorithm to store newly added ids
-
     int isTerminalSym(int a);
 
     vector<int> *copySubSeq(grRule *in, int from, int to);
@@ -95,6 +94,8 @@ public:
     void tarjan(int v);
 
     vector<grRule *> tempRules;
+
+    void printRules();
 };
 
 

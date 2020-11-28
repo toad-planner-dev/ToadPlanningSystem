@@ -13,7 +13,14 @@ void CFtoRegGrammarEnc::overapproximate(CFGtoFDAtranslator *g, Model *htn) {
     map<pair<int, int>, int> right;
     set<int> needToDelete;
     for (int i = 0; i < g->NumNis; i++) {
+        //cout << "- N " << i << " of " << g->NumNis << endl;
+        //cout << "- SCC size: " << g->NiSize[i] << endl;
         if (g->NiRec[i] == g->recSelf) {
+            //cout << "  - creating new symbols" << endl;
+            up.clear();
+            down.clear();
+            left.clear();
+            right.clear();
             for (int j = 0; j < g->NiSize[i]; j++) {
                 int A = g->Ni[i][j];
                 for (int k = 0; k < g->NiSize[i]; k++) {
@@ -27,6 +34,7 @@ void CFtoRegGrammarEnc::overapproximate(CFGtoFDAtranslator *g, Model *htn) {
                 }
             }
 
+            //cout << "  - rules of type 2.1, 2.4, 2.6, 2.8" << endl;
             for (int j = 0; j < g->NiSize[i]; j++) {
                 int A = g->Ni[i][j];
                 // (2.1)
@@ -45,6 +53,7 @@ void CFtoRegGrammarEnc::overapproximate(CFGtoFDAtranslator *g, Model *htn) {
                 }
             }
 
+            //cout << "  - rules of type 2.2, 2.3, 2.5, 2.7" << endl;
             vector<int> R;
             for (int j = 0; j < g->NiSize[i]; j++) {
                 int A = g->Ni[i][j];
@@ -53,9 +62,16 @@ void CFtoRegGrammarEnc::overapproximate(CFGtoFDAtranslator *g, Model *htn) {
                 }
             }
 
+            int status = R.size() / 10;
+            int statI = 0;
+            vector<int> symFromNi;
             for (int ir : R) {
+                //if (statI >= status) {
+                //    statI = 0;
+                //    cout << "    - " << statI <<"/" << R.size() << endl;
+                //}
                 grRule *r = g->rules[ir];
-                vector<int> symFromNi;
+                symFromNi.clear();
                 for (int k = 0; k < r->rLength; k++) {
                     int sym = r->right[k];
                     if (g->SymToNi[sym] == i) {

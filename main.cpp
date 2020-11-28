@@ -136,8 +136,13 @@ int main(int argc, char *argv[]) {
     cout << "Analysing rules" << endl;
     to2s->initDataStructures();
     to2s->analyseRules(true);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timeHtnToGrammar=" << (endT - startT) << "]" << endl;
+    startT = endT;
+
     int S = htn->initialTask;
     if (!to2s->isRegurlar) {
+        //to2s->printRules();
         CFtoRegGrammarEnc approx;
         cout << "- re-encode rules" << endl;
         approx.overapproximate(to2s, htn);
@@ -146,7 +151,11 @@ int main(int argc, char *argv[]) {
         cout << "- calc SCCs" << endl;
         to2s->calcSCCs(htn->initialTask);
         cout << "- re-analysing rules" << endl;
-        to2s->analyseRules(false);
+        to2s->analyseRules(true);
+        //to2s->printRules();
+        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeCfgToRegTransf=" << (endT - startT) << "]" << endl;
+        startT = endT;
     }
 
     cout << "Creating DFA" << endl;
@@ -195,6 +204,7 @@ int main(int argc, char *argv[]) {
     cout << "Finished!" << endl;
 
     //mw.dfa->print(htn->taskNames, 0, 1);
+    //htn->printTDG();
     delete htn;
 
     //to2s->dfa.print(htn->taskNames, startState, finalState);

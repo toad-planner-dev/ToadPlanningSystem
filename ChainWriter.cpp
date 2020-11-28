@@ -209,7 +209,7 @@ void ChainWriter::writeSASPlus(ostream &os) {
     }
     delete stack;
 
-    printGraph(macroActions);
+    //printGraph(macroActions);
 
     cout << "- building macro actions" << endl;
     vector<int> deletedMAs;
