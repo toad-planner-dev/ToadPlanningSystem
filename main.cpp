@@ -9,6 +9,8 @@
 #include "optimization/DFAMinimization.h"
 #include "translation/CFtoRegGrammarEnc.h"
 #include "ChainWriter.h"
+#include "utils/TripleSet.h"
+#include "BinSetWriter.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -141,6 +143,7 @@ int main(int argc, char *argv[]) {
     startT = endT;
 
     int S = htn->initialTask;
+    //to2s->printRules();
     if (!to2s->isRegurlar) {
         //to2s->printRules();
         CFtoRegGrammarEnc approx;
@@ -157,6 +160,7 @@ int main(int argc, char *argv[]) {
         cout << "- [timeCfgToRegTransf=" << (endT - startT) << "]" << endl;
         startT = endT;
     }
+    //to2s->printRules();
 
     cout << "Creating DFA" << endl;
     cout << "- starting symbol: " << S << endl;
@@ -187,8 +191,9 @@ int main(int argc, char *argv[]) {
     string dFile = "domain.pddl";
     string pFile = "problem.sas";
 
-    ModelWriter mw;
-    //ChainWriter mw;
+    //ModelWriter mw;
+    ChainWriter mw;
+    //BinSetWriter mw;
     bool writePDDL = false; // PDDL or SAS+
     if (writePDDL)
         cout << "- Writing PDDL representation. [writer=PDDL]" << endl;
