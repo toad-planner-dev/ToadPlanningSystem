@@ -7,6 +7,8 @@
 #include <vector>
 
 void FiniteAutomaton::addRule(int q0, int alpha, int q1) {
+    //this->fda->add(q0, alpha, q1);
+
     if (alpha == -1)
         if(q0 == q1)
             return;

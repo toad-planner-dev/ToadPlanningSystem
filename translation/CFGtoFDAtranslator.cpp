@@ -136,6 +136,7 @@ vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
 
 void CFGtoFDAtranslator::sortRules() {
     quick(0, numRules - 1);
+    //printRules();
 }
 
 void CFGtoFDAtranslator::quick(int l, int r) {

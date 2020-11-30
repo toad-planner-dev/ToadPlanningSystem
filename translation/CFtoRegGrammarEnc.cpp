@@ -61,6 +61,7 @@ void CFtoRegGrammarEnc::overapproximate(CFGtoFDAtranslator *g, Model *htn) {
                     R.push_back(k);
                 }
             }
+            //cout << "R: " << R.size() << endl;
 
             int status = R.size() / 10;
             int statI = 0;

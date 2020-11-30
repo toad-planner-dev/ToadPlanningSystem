@@ -191,8 +191,8 @@ int main(int argc, char *argv[]) {
     string dFile = "domain.pddl";
     string pFile = "problem.sas";
 
-    //ModelWriter mw;
-    ChainWriter mw;
+    ModelWriter mw;
+    //ChainWriter mw;
     //BinSetWriter mw;
     bool writePDDL = false; // PDDL or SAS+
     if (writePDDL)

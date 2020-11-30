@@ -6,6 +6,7 @@
 #define TOSTRIPSAPPROXIMATION_FINITEAUTOMATON_H
 
 #include "Pair.h"
+#include "../utils/TripleSet.h"
 #include <set>
 #include <unordered_map>
 #include <vector>
@@ -15,11 +16,15 @@ using namespace std;
 class FiniteAutomaton {
 
 public:
+    //int numActions;
     virtual ~FiniteAutomaton();
     void addRule(int q0, int alpha, int q1);
     void print(string *pVector, int i, int i1);
     //unordered_map<Pair*, set<int>*, pairHash, pairComp> fda;
     unordered_map<int, unordered_map<int, set<int>*>*> fda2;
+    //TripleSet *fda;
+
+
     unordered_map<int, unordered_map<int, set<int> *> *> * getActionMap();
 
     int stateID = 0; // next state id
