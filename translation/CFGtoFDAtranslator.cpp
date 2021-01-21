@@ -262,6 +262,7 @@ void CFGtoFDAtranslator::initDataStructures() {
     // copy rules
     this->numRules = tempRules.size() - deleteRules.size();
     rules = new grRule *[numRules];
+    int newI = 0;
     for (int i = 0; i < tempRules.size(); i++) {
         grRule* r =tempRules.at(i);
         if(r->markedForDelete)
@@ -271,7 +272,7 @@ void CFGtoFDAtranslator::initDataStructures() {
             r->right = new int[1];
             r->right[0] = -1;
         }
-        rules[i] = r;
+        rules[newI++] = r;
     }
 
     cout << "- sorting rules...";
