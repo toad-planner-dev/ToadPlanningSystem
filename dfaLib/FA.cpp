@@ -34,7 +34,7 @@ void FA::minimize() {
 
     int numP = 2; // current number of partitions
 
-    partitions = new int[numStates]; // list of qsPart elements
+    partitions = new int[numStates]; // list of partByPartition elements
     for (int i = 0; i < numStates; i++) {
         partitions[i] = i;
     }
@@ -48,14 +48,23 @@ void FA::minimize() {
         s2p[i] = 1;
     }
 
-    qSort(0, numStates - 1);
+//    cout << endl;
+//    for (int i = 0; i < numStates; i++) {
+//        cout << partitions[i] << " " << s2p[i] << endl;
+//    }
+    sortByPartition(0, numStates - 1);
 
-    // start and end index of each qsPart in the "partitions" array
+//    cout << endl;
+//    for (int i = 0; i < numStates; i++) {
+//        cout << partitions[i] << " " << s2p[i] << endl;
+//    }
+
+    // start and end index of each partByPartition in the "partitions" array
     firstI.clear();
     lastI.clear();
     firstI.push_back(0);
-    lastI.push_back(numStates - 2); // the last one is the final state
-    firstI.push_back(numStates - 1);
+    lastI.push_back(numStates - 1 - sGoal.size()); // the last one is the final state
+    firstI.push_back(numStates - sGoal.size());
     lastI.push_back(numStates - 1);
 
     list<int> W;
@@ -66,24 +75,24 @@ void FA::minimize() {
         int A = W.front();
         W.pop_front();
         for (int c = 0; c < numSymbols; c++) { // iterate over symbols
-            cout << "A: ";
-            for (int i = firstI[A]; i <= lastI[A]; i++) {
-                cout << partitions[i] << " ";
-            }
-            cout << "sym: " << c << endl;
+//            cout << "A: ";
+//            for (int i = firstI[A]; i <= lastI[A]; i++) {
+//                cout << partitions[i] << " ";
+//            }
+//            cout << "sym: " << c << endl;
             reachesAbyCtoX(A, c); // fills X in the class
-            for (int i = 0; i < X.size(); i++)
-                cout << X[i] << " ";
-            cout << endl << endl;
+//            for (int i = 0; i < X.size(); i++)
+//                cout << X[i] << " ";
+//            cout << endl << endl;
 
             int oldSize = numP;
             for (int Y = 0; Y < oldSize; Y++) {
                 if (XYintersectNotEq(Y)) {
                     int newP = numP++;
                     for (int i : inRest) {
-                        s2p[i] = newP; // create new qsPart
+                        s2p[i] = newP; // create new partByPartition
                     }
-                    qSort(firstI[Y], lastI[Y]); // divide partitions
+                    sortByPartition(firstI[Y], lastI[Y]); // divide partitions
 
                     // update indices
                     firstI.push_back(lastI[Y] - (inRest.size() - 1));
@@ -102,10 +111,11 @@ void FA::minimize() {
             }
         }
     }
+    sortByIndex(0, numStates - 1);
 
-    for (int i = 0; i < numStates; i++) {
-        cout << partitions[i] << " " << s2p[i] << endl;
-    }
+//    for (int i = 0; i < numStates; i++) {
+//        cout << partitions[i] << " " << s2p[i] << endl;
+//    }
 
     // update information
     int numTransitions2 = 0;
@@ -173,19 +183,19 @@ void FA::reachesAbyCtoX(int A, int c) {
             }
         }
     }
-    /*
-    cout << "reachesAbyCtoX:" << endl;
-    for(int i = 0; i < X.size(); i++) {
-        cout << X[i] << " ";
-    }
-    cout << endl<< endl;*/
+
+//    cout << "reachesAbyCtoX:" << endl;
+//    for(int i = 0; i < X.size(); i++) {
+//        cout << X[i] << " ";
+//    }
+//    cout << endl<< endl;
     sort(X.begin(), X.end());
     X.erase(unique(X.begin(), X.end()), X.end());
-    /*
-    for(int i = 0; i < X.size(); i++) {
-        cout << X[i] << " ";
-    }
-    cout << endl<< endl;*/
+
+//    for(int i = 0; i < X.size(); i++) {
+//        cout << X[i] << " ";
+//    }
+//    cout << endl<< endl;
 }
 
 bool FA::XYintersectNotEq(int Y) {
@@ -218,21 +228,21 @@ bool FA::XYintersectNotEq(int Y) {
     return (interNonEmpty && !inRest.empty());
 }
 
-void FA::qSort(int lo, int hi) {
+void FA::sortByPartition(int lo, int hi) {
     if (lo < hi) {
-        int p = qsPart(lo, hi);
-        qSort(lo, p);
-        qSort(p + 1, hi);
+        int p = partByPartition(lo, hi);
+        sortByPartition(lo, p);
+        sortByPartition(p + 1, hi);
     }
 }
 
-int FA::qsPart(int lo, int hi) {
+int FA::partByPartition(int lo, int hi) {
     int pivot = ((hi + lo) / 2);
     int i = lo - 1;
     int j = hi + 1;
     while (true) {
-        do { i++; } while (comp(i, pivot) < 0);
-        do { j--; } while (comp(j, pivot) > 0);
+        do { i++; } while (compByPartition(i, pivot) < 0);
+        do { j--; } while (compByPartition(j, pivot) > 0);
         if (i >= j) {
             return j;
         }
@@ -250,7 +260,7 @@ void FA::qsSwap(int i, int j) {
     s2p[j] = temp;
 }
 
-int FA::comp(int i, int j) {
+int FA::compByPartition(int i, int j) {
     if (s2p[i] != s2p[j]) {
         return s2p[i] - s2p[j];
     } else if (partitions[i] != partitions[j]) {
@@ -258,6 +268,32 @@ int FA::comp(int i, int j) {
     } else {
         return 0;
     }
+}
+
+void FA::sortByIndex(int lo, int hi) {
+    if (lo < hi) {
+        int p = partByIndex(lo, hi);
+        sortByIndex(lo, p);
+        sortByIndex(p + 1, hi);
+    }
+}
+
+int FA::partByIndex(int lo, int hi) {
+    int pivot = ((hi + lo) / 2);
+    int i = lo - 1;
+    int j = hi + 1;
+    while (true) {
+        do { i++; } while (compByIndex(i, pivot) < 0);
+        do { j--; } while (compByIndex(j, pivot) > 0);
+        if (i >= j) {
+            return j;
+        }
+        qsSwap(i, j);
+    }
+}
+
+int FA::compByIndex(int i, int j) {
+    return partitions[i] - partitions[j];
 }
 
 set<int> *FA::getFrom(int to, int c) {
@@ -290,4 +326,23 @@ void FA::addRule(int from, int alpha, int to) {
         this->numTransitions++;
         fromSet->insert(from);
     }
+}
+
+void FA::printDOT() {
+    cout << endl << "digraph D {" << endl << endl;
+    cout << "   n" << sInit << " [shape=diamond]" << endl;
+    for (int g : sGoal) {
+        cout << "   n" << g << " [shape=box]" << endl;
+    }
+
+    for (auto toTuple : *data) {
+        int to = toTuple.first;
+        for (auto labelTuple : *toTuple.second) {
+            int alpha = labelTuple.first;
+            for (int from : *labelTuple.second) {
+                cout << "   n" << from << " -> n" << to << " [label=c" << alpha << "]" << endl;
+            }
+        }
+    }
+    cout << endl << "}" << endl;
 }

@@ -26,15 +26,15 @@ class FA {
     vector<int> inRest;
 
 
-    void qSort(int i, int i1);
+    void sortByPartition(int i, int i1);
 
-    int qsPart(int lo, int hi);
+    int partByPartition(int lo, int hi);
 
     void reachesAbyCtoX(int a, int c);
 
     bool XYintersectNotEq(int Y);
 
-    int comp(int i, int pivot);
+    int compByPartition(int i, int pivot);
 
     FAData *updateFAData(int &numTransitions2);
 
@@ -53,6 +53,14 @@ public:
     set<int> *getFrom(int to, int c);
 
     void qsSwap(int i, int j);
+
+    void printDOT();
+
+    void sortByIndex(int lo, int hi);
+
+    int partByIndex(int lo, int hi);
+
+    int compByIndex(int i, int j);
 };
 
 
