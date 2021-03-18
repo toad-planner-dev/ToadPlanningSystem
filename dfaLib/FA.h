@@ -11,8 +11,10 @@
 
 using namespace std;
 
+typedef unordered_map<int, unordered_map<int, set<int> *> *> FAData;
+
 class FA {
-    unordered_map<int, unordered_map<int, set<int>*>*> data;
+    unordered_map<int, unordered_map<int, set<int> *> *> *data;
     int numTransitions = 0;
 
     // for minimization
@@ -34,20 +36,23 @@ class FA {
 
     int comp(int i, int pivot);
 
+    FAData *updateFAData(int &numTransitions2);
+
 public:
+    FA();
+    ~FA();
     int numStates = -1;
     int sInit = -1;
     vector<int> sGoal;
     int numSymbols = -1;
 
     void addRule(int from, int alpha, int to);
+
     void minimize();
 
     set<int> *getFrom(int to, int c);
 
     void qsSwap(int i, int j);
-
-    void updateFAData(unordered_map<int, unordered_map<int, set<int> *> *> &data2, int &numTransitions2);
 };
 
 

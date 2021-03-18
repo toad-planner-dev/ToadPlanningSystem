@@ -9,6 +9,20 @@
 #include <algorithm>
 #include <iostream>
 
+FA::FA() {
+    this->data = new FAData;
+}
+
+FA::~FA() {
+    for (auto toTuple : *data) {
+        for (auto labelTuple : *toTuple.second) {
+            delete labelTuple.second;
+        }
+        delete toTuple.second;
+    }
+    delete data;
+}
+
 //
 // Hopcroft's algorithm
 //
@@ -30,7 +44,7 @@ void FA::minimize() {
     for (int i = 0; i < numStates; i++) {
         s2p[i] = 0;
     }
-    for(int i : sGoal) {
+    for (int i : sGoal) {
         s2p[i] = 1;
     }
 
@@ -53,14 +67,14 @@ void FA::minimize() {
         W.pop_front();
         for (int c = 0; c < numSymbols; c++) { // iterate over symbols
             cout << "A: ";
-            for(int i = firstI[A]; i <= lastI[A]; i++) {
+            for (int i = firstI[A]; i <= lastI[A]; i++) {
                 cout << partitions[i] << " ";
             }
             cout << "sym: " << c << endl;
             reachesAbyCtoX(A, c); // fills X in the class
-            for(int i = 0; i < X.size(); i++)
+            for (int i = 0; i < X.size(); i++)
                 cout << X[i] << " ";
-            cout << endl<< endl;
+            cout << endl << endl;
 
             int oldSize = numP;
             for (int Y = 0; Y < oldSize; Y++) {
@@ -89,22 +103,21 @@ void FA::minimize() {
         }
     }
 
-    for(int i = 0; i < numStates; i++) {
+    for (int i = 0; i < numStates; i++) {
         cout << partitions[i] << " " << s2p[i] << endl;
     }
 
-    unordered_map<int, unordered_map<int, set<int>*>*> data2;
-    int numTransitions2 = 0;
-
-    updateFAData(data2, numTransitions2);
     // update information
+    int numTransitions2 = 0;
+    FAData *data2 = updateFAData(numTransitions2);
     this->numStates = numP;
     this->sInit = s2p[sInit];
-    for(int & i : sGoal){
+    for (int &i : sGoal) {
         i = s2p[i];
     }
     sort(sGoal.begin(), sGoal.end());
     sGoal.erase(unique(sGoal.begin(), sGoal.end()), sGoal.end());
+    delete this->data;
     this->data = data2;
     this->numTransitions = numTransitions2;
 
@@ -117,14 +130,15 @@ void FA::minimize() {
     inRest.clear();
 }
 
-void FA::updateFAData(unordered_map<int, unordered_map<int, set<int> *> *> &data2, int &numTransitions2) {
-    for (auto toTuple : data) {
+FAData *FA::updateFAData(int &numTransitions2) {
+    FAData *data2 = new FAData;
+    for (auto toTuple : *data) {
         int to = toTuple.first;
         int to2 = s2p[to];
-        if (data2.find(to2) == data2.end()) {
-            data2[to2] = new unordered_map<int, set<int> *>;
+        if (data2->find(to2) == data2->end()) {
+            data2->insert({to2, new unordered_map<int, set<int> *>});
         }
-        auto toSet2 = data2[to2];
+        auto toSet2 = data2->at(to2);
         for (auto labelTuple : *toTuple.second) {
             int alpha = labelTuple.first;
             set<int> *fromSet;
@@ -134,7 +148,7 @@ void FA::updateFAData(unordered_map<int, unordered_map<int, set<int> *> *> &data
             } else {
                 fromSet = toSet2->at(alpha);
             }
-            for(int from : *labelTuple.second) {
+            for (int from : *labelTuple.second) {
                 int from2 = s2p[from];
                 if (fromSet->find(from2) == fromSet->end()) {
                     numTransitions2++;
@@ -145,6 +159,7 @@ void FA::updateFAData(unordered_map<int, unordered_map<int, set<int> *> *> &data
         }
         delete toTuple.second;
     }
+    return data2;
 }
 
 void FA::reachesAbyCtoX(int A, int c) {
@@ -152,7 +167,7 @@ void FA::reachesAbyCtoX(int A, int c) {
     for (int sA = firstI[A]; sA <= lastI[A]; sA++) {
         int elem = partitions[sA];
         set<int> *from = getFrom(elem, c);
-        if(from != nullptr) {
+        if (from != nullptr) {
             for (int s : *from) {
                 X.push_back(s);
             }
@@ -246,8 +261,8 @@ int FA::comp(int i, int j) {
 }
 
 set<int> *FA::getFrom(int to, int c) {
-    if (data.find(to) != data.end()) {
-        auto temp = data[to];
+    if (data->find(to) != data->end()) {
+        auto temp = data->at(to);
         if (temp->find(c) != temp->end()) {
             set<int> *res = temp->at(c);
             return res;
@@ -260,16 +275,16 @@ void FA::addRule(int from, int alpha, int to) {
     if ((alpha == -1) && (from == to)) // epsilon selfloop
         return;
 
-    if (data.find(to) == data.end()) {
-        data[to] = new unordered_map<int, set<int> *>;
+    if (data->find(to) == data->end()) {
+        data->insert({to, new unordered_map<int, set<int> *>});
     }
 
     set<int> *fromSet;
-    if (data[to]->find(alpha) == data[to]->end()) {
+    if (data->at(to)->find(alpha) == data->at(to)->end()) {
         fromSet = new set<int>;
-        data[to]->insert({alpha, fromSet});
+        data->at(to)->insert({alpha, fromSet});
     } else {
-        fromSet = data[to]->at(alpha);
+        fromSet = data->at(to)->at(alpha);
     }
     if (fromSet->find(from) == fromSet->end()) {
         this->numTransitions++;
