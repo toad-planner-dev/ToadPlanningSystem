@@ -43,12 +43,14 @@ public:
     ~FA();
     int numStates = -1;
     int sInit = -1;
-    vector<int> sGoal;
+    set<int> sGoal;
     int numSymbols = -1;
 
     void addRule(int from, int alpha, int to);
 
     void minimize();
+
+    void compileToDFA();
 
     set<int> *getFrom(int to, int c);
 
@@ -61,6 +63,14 @@ public:
     int partByIndex(int lo, int hi);
 
     int compByIndex(int i, int j);
+
+    void getOutgoingArcs(int s, int *startI, int *endI);
+
+    void getTransition(int j, int *pInt, int *pInt1, int *pInt2);
+
+    void addTempArc(int s1, const int alpha, int s2);
+
+    void addTempGoal(int s);
 };
 
 

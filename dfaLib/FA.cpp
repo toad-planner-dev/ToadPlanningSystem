@@ -3,11 +3,15 @@
 //
 
 #include "FA.h"
+#include "NFAtoDFA/psState.h"
 
 #include <list>
 #include <set>
+#include <map>
+#include <unordered_set>
 #include <algorithm>
 #include <iostream>
+#include <cassert>
 
 FA::FA() {
     this->data = new FAData;
@@ -345,4 +349,81 @@ void FA::printDOT() {
         }
     }
     cout << endl << "}" << endl;
+}
+
+void FA::compileToDFA() {
+    int newStates = 0;
+    unordered_set<psState*, psStatePointedObjHash, psStatePointedEq> states;
+    psState *s0 = new psState(new int{sInit}, 1);
+    if(sGoal.find(sInit) != sGoal.end()) {
+        addTempGoal(s0->id);
+    }
+    states.insert(s0);
+
+    list<psState*> queue;
+    queue.push_back(s0);
+
+    while (!queue.empty()) {
+        psState* sSet = queue.front();
+        queue.pop_front();
+
+        map<int, set<int>*> arcsOut;
+        for (int i = 0; i < sSet->length; i++) {
+            int s = sSet->elems[i]; // part state
+
+            // determine outgoing arcs
+            int startOut;
+            int endOut;
+            getOutgoingArcs(s, &startOut, &endOut);
+            for (int j = startOut; j <= endOut; j++) {
+                int sFrom;
+                int alpha;
+                int sTo;
+                getTransition(j, &sFrom, & alpha, & sTo);
+                if (arcsOut.find(alpha) == arcsOut.end()) {
+                    arcsOut.insert({alpha, new set<int>});
+                }
+                assert(s == sFrom);
+                arcsOut[alpha]->insert(sTo);
+            }
+        }
+        for(auto arcOut : arcsOut) {
+            int* e = new int[arcOut.second->size()];
+            int i= 0;
+            for(int s : *arcOut.second) {
+                e[i++] = s;
+            }
+            psState* ps = new psState(e, arcOut.second->size());
+            auto temp = states.find(ps);
+            if(temp == states.end()) {
+                ps->id = newStates++;
+                for(int s : *arcOut.second) {
+                    if (sGoal.find(s) != sGoal.end()) {
+                        addTempGoal(ps->id);
+                        break;
+                    }
+                }
+                states.insert(ps);
+                queue.push_back(ps);
+            } else { // already there
+                addTempArc(sSet->id, arcOut.first, (*temp)->id);
+            }
+        }
+    }
+}
+
+void FA::getOutgoingArcs(int s, int *startI, int *endI) {
+
+}
+
+void FA::getTransition(int j, int *pInt, int *pInt1, int *pInt2) {
+
+}
+
+void FA::addTempArc(int s1, const int alpha, int s2) {
+
+}
+
+void FA::addTempGoal(int s) {
+
 }
