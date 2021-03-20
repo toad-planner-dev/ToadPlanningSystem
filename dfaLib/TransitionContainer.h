@@ -26,6 +26,8 @@ class TransitionContainer {
     void quicksort(int lo, int hi, int by);
     int partition(int lo, int hi, int by);
     int compare(int i, int j, int by);
+
+    void freeUnusedMemory();
 public:
     TransitionContainer();
     ~TransitionContainer();
@@ -35,8 +37,10 @@ public:
     void makeSortedSet();
 
     void get(int i, int *from, int *alpha, int *to);
+    void getAndDeleteLast(int *from, int *alpha, int *to);
     void append(int from, int alpha, int to);
     void set(int i, int from, int alpha, int to);
+    int getSize();
 
 };
 

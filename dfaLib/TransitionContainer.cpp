@@ -38,6 +38,7 @@ void TransitionContainer::makeSortedSet() {
         quicksort(0, size - 1, store);
     }
     size -= numDels; // after sorting, these will be at the end
+    freeUnusedMemory();
 }
 
 void TransitionContainer::get(int i, int *from, int *alpha, int *to) {
@@ -47,6 +48,12 @@ void TransitionContainer::get(int i, int *from, int *alpha, int *to) {
     *from = data[blockIndex][cellIndex];
     *alpha = data[blockIndex][cellIndex + 1];
     *to = data[blockIndex][cellIndex + 2];
+}
+
+void TransitionContainer::getAndDeleteLast(int *from, int *alpha, int *to) {
+    get(size - 1, from, alpha, to);
+    size--;
+    freeUnusedMemory();
 }
 
 void TransitionContainer::append(int from, int alpha, int to) {
@@ -132,4 +139,14 @@ int TransitionContainer::compare(int i, int j, int by) {
     const int vi = data[blockIndexI][cellIndexI];
     const int vj = data[blockIndexJ][cellIndexJ];
     return vi - vj;
+}
+
+int TransitionContainer::getSize() {
+    return size;
+}
+
+void TransitionContainer::freeUnusedMemory() {
+    if (size < (data.size() - 1 ) * containerSize) { // free memory
+        delete[] data[data.size() - 1];
+    }
 }
