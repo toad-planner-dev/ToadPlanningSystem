@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <functional>
+#include "../TransitionContainer.h"
 
 using namespace std;
 
@@ -20,13 +21,13 @@ inline void hash_combine(std::size_t &seed, const T &v, Rest... rest) {
 }
 
 struct psState {
-    int id;
-    int *elems;
+    tStateID id;
+    tStateID *elems;
     int length;
     size_t hash = -1;
 
     psState(){}
-    psState(int* e, int length) {
+    psState(tStateID* e, int length) {
         elems = e;
         length = length;
     }

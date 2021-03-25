@@ -11,41 +11,34 @@
 #include <unordered_set>
 #include <algorithm>
 #include <iostream>
-#include <cassert>
 
 FA::FA() {
-    this->data = new FAData;
+    this->delta = new TransitionContainer;
 }
 
 FA::~FA() {
-    for (auto toTuple : *data) {
-        for (auto labelTuple : *toTuple.second) {
-            delete labelTuple.second;
-        }
-        delete toTuple.second;
-    }
-    delete data;
+    delete this->delta;
 }
 
 //
 // Hopcroft's algorithm
 //
 void FA::minimize() {
-    if ((numStates == -1) || (sInit == -1) || (sGoal.size() == 0) || (numSymbols == -1)) {
+    if ((maxStateID == -1) || (sInit.size() == 0) || (sGoal.size() == 0) || (numSymbols == -1)) {
         cout << "Error: Please properly initialize DFA before calling the minimization." << endl;
         exit(-1);
     }
 
     int numP = 2; // current number of partitions
 
-    partitions = new int[numStates]; // list of partByPartition elements
-    for (int i = 0; i < numStates; i++) {
+    partitions = new int[maxStateID]; // list of partByPartition elements
+    for (int i = 0; i < maxStateID; i++) {
         partitions[i] = i;
     }
 
     // mapping of states to partitions
-    s2p = new int[numStates];
-    for (int i = 0; i < numStates; i++) {
+    s2p = new int[maxStateID];
+    for (int i = 0; i < maxStateID; i++) {
         s2p[i] = 0;
     }
     for (int i : sGoal) {
@@ -53,13 +46,13 @@ void FA::minimize() {
     }
 
 //    cout << endl;
-//    for (int i = 0; i < numStates; i++) {
+//    for (int i = 0; i < maxStateID; i++) {
 //        cout << partitions[i] << " " << s2p[i] << endl;
 //    }
-    sortByPartition(0, numStates - 1);
+    sortByPartition(0, maxStateID - 1);
 
 //    cout << endl;
-//    for (int i = 0; i < numStates; i++) {
+//    for (int i = 0; i < maxStateID; i++) {
 //        cout << partitions[i] << " " << s2p[i] << endl;
 //    }
 
@@ -67,9 +60,9 @@ void FA::minimize() {
     firstI.clear();
     lastI.clear();
     firstI.push_back(0);
-    lastI.push_back(numStates - 1 - sGoal.size()); // the last one is the final state
-    firstI.push_back(numStates - sGoal.size());
-    lastI.push_back(numStates - 1);
+    lastI.push_back(maxStateID - 1 - sGoal.size()); // the last one is the final state
+    firstI.push_back(maxStateID - sGoal.size());
+    lastI.push_back(maxStateID - 1);
 
     list<int> W;
     W.push_back(0); // this is a partition id
@@ -115,25 +108,30 @@ void FA::minimize() {
             }
         }
     }
-    sortByIndex(0, numStates - 1);
+    sortByIndex(0, maxStateID - 1);
 
-//    for (int i = 0; i < numStates; i++) {
+//    for (int i = 0; i < maxStateID; i++) {
 //        cout << partitions[i] << " " << s2p[i] << endl;
 //    }
 
-    // update information
-    int numTransitions2 = 0;
-    FAData *data2 = updateFAData(numTransitions2);
-    this->numStates = numP;
-    this->sInit = s2p[sInit];
-    for (int &i : sGoal) {
-        i = s2p[i];
+    // update initial state
+    vector<int> temp;
+    for (int i : sInit) {
+        temp.push_back(s2p[i]);
     }
-    sort(sGoal.begin(), sGoal.end());
-    sGoal.erase(unique(sGoal.begin(), sGoal.end()), sGoal.end());
-    delete this->data;
-    this->data = data2;
-    this->numTransitions = numTransitions2;
+    sInit.clear();
+    for(int i : temp) {sInit.insert(i);}
+
+    // update goal
+    temp.clear();
+    for (int i : sGoal) {
+        temp.push_back(s2p[i]);
+    }
+    sGoal.clear();
+    for(int i : temp) {sGoal.insert(i);}
+
+    this->maxStateID = numP; // update max state id
+    delta->updateFAData(s2p); // update transitions
 
     // clean up
     delete[] partitions;
@@ -144,43 +142,12 @@ void FA::minimize() {
     inRest.clear();
 }
 
-FAData *FA::updateFAData(int &numTransitions2) {
-    FAData *data2 = new FAData;
-    for (auto toTuple : *data) {
-        int to = toTuple.first;
-        int to2 = s2p[to];
-        if (data2->find(to2) == data2->end()) {
-            data2->insert({to2, new unordered_map<int, set<int> *>});
-        }
-        auto toSet2 = data2->at(to2);
-        for (auto labelTuple : *toTuple.second) {
-            int alpha = labelTuple.first;
-            set<int> *fromSet;
-            if (toSet2->find(alpha) == toSet2->end()) {
-                fromSet = new set<int>;
-                toSet2->insert({alpha, fromSet});
-            } else {
-                fromSet = toSet2->at(alpha);
-            }
-            for (int from : *labelTuple.second) {
-                int from2 = s2p[from];
-                if (fromSet->find(from2) == fromSet->end()) {
-                    numTransitions2++;
-                    fromSet->insert(from2);
-                }
-            }
-            delete labelTuple.second;
-        }
-        delete toTuple.second;
-    }
-    return data2;
-}
 
 void FA::reachesAbyCtoX(int A, int c) {
     X.clear();
     for (int sA = firstI[A]; sA <= lastI[A]; sA++) {
         int elem = partitions[sA];
-        set<int> *from = getFrom(elem, c);
+        set<tStateID> *from = delta->getFrom(elem, c);
         if (from != nullptr) {
             for (int s : *from) {
                 X.push_back(s);
@@ -300,63 +267,39 @@ int FA::compByIndex(int i, int j) {
     return partitions[i] - partitions[j];
 }
 
-set<int> *FA::getFrom(int to, int c) {
-    if (data->find(to) != data->end()) {
-        auto temp = data->at(to);
-        if (temp->find(c) != temp->end()) {
-            set<int> *res = temp->at(c);
-            return res;
-        }
-    }
-    return nullptr;
-}
-
-void FA::addRule(int from, int alpha, int to) {
-    if ((alpha == -1) && (from == to)) // epsilon selfloop
-        return;
-
-    if (data->find(to) == data->end()) {
-        data->insert({to, new unordered_map<int, set<int> *>});
-    }
-
-    set<int> *fromSet;
-    if (data->at(to)->find(alpha) == data->at(to)->end()) {
-        fromSet = new set<int>;
-        data->at(to)->insert({alpha, fromSet});
-    } else {
-        fromSet = data->at(to)->at(alpha);
-    }
-    if (fromSet->find(from) == fromSet->end()) {
-        this->numTransitions++;
-        fromSet->insert(from);
-    }
-}
-
 void FA::printDOT() {
     cout << endl << "digraph D {" << endl << endl;
-    cout << "   n" << sInit << " [shape=diamond]" << endl;
+    for(int i : sInit) {
+        cout << "   n" << i << " [shape=diamond]" << endl;
+    }
     for (int g : sGoal) {
         cout << "   n" << g << " [shape=box]" << endl;
     }
 
-    for (auto toTuple : *data) {
-        int to = toTuple.first;
-        for (auto labelTuple : *toTuple.second) {
-            int alpha = labelTuple.first;
-            for (int from : *labelTuple.second) {
-                cout << "   n" << from << " -> n" << to << " [label=c" << alpha << "]" << endl;
-            }
-        }
+    delta->fullIterInit();
+    tStateID from, to;
+    tLabelID label;
+    while (delta->fullIterNext(&from, &label, &to)) {
+        cout << "   n" << from << " -> n" << to << " [label=c" << label << "]" << endl;
     }
+
     cout << endl << "}" << endl;
 }
 
 void FA::compileToDFA() {
     int newStates = 0;
     unordered_set<psState*, psStatePointedObjHash, psStatePointedEq> states;
-    psState *s0 = new psState(new int{sInit}, 1);
-    if(sGoal.find(sInit) != sGoal.end()) {
-        addTempGoal(s0->id);
+    tStateID * s0Set = new tStateID[sInit.size()];
+    set<tStateID> tempGoal;
+    int k = 0;
+    for(int i : sInit) { s0Set[k++] = i;}
+
+    psState *s0 = new psState(s0Set, sInit.size());
+    for(int i : sInit) {
+        if (sGoal.find(i) != sGoal.end()) {
+            tempGoal.insert(s0->id);
+            break;
+        }
     }
     states.insert(s0);
 
@@ -367,28 +310,24 @@ void FA::compileToDFA() {
         psState* sSet = queue.front();
         queue.pop_front();
 
-        map<int, set<int>*> arcsOut;
+        map<tLabelID , set<tStateID>*> arcsOut;
         for (int i = 0; i < sSet->length; i++) {
             int s = sSet->elems[i]; // part state
 
             // determine outgoing arcs
-            int startOut;
-            int endOut;
-            getOutgoingArcs(s, &startOut, &endOut);
-            for (int j = startOut; j <= endOut; j++) {
-                int sFrom;
-                int alpha;
-                int sTo;
-                getTransition(j, &sFrom, & alpha, & sTo);
+            delta->outIterInit(s);
+
+            tStateID sTo;
+            tLabelID alpha;
+            while (delta->outIterNext(&alpha, &sTo)) {
                 if (arcsOut.find(alpha) == arcsOut.end()) {
-                    arcsOut.insert({alpha, new set<int>});
+                    arcsOut.insert({alpha, new set<tStateID>});
                 }
-                assert(s == sFrom);
                 arcsOut[alpha]->insert(sTo);
             }
         }
         for(auto arcOut : arcsOut) {
-            int* e = new int[arcOut.second->size()];
+            tStateID * e = new tStateID[arcOut.second->size()];
             int i= 0;
             for(int s : *arcOut.second) {
                 e[i++] = s;
@@ -399,31 +338,45 @@ void FA::compileToDFA() {
                 ps->id = newStates++;
                 for(int s : *arcOut.second) {
                     if (sGoal.find(s) != sGoal.end()) {
-                        addTempGoal(ps->id);
+                        tempGoal.insert(ps->id);
                         break;
                     }
                 }
                 states.insert(ps);
                 queue.push_back(ps);
             } else { // already there
-                addTempArc(sSet->id, arcOut.first, (*temp)->id);
+                delta->addTempArc(sSet->id, arcOut.first, (*temp)->id);
             }
         }
     }
+    delta->switchToTemp();
+    this->sGoal.clear();
+    for(int g : tempGoal) this->sGoal.insert(g);
 }
 
-void FA::getOutgoingArcs(int s, int *startI, int *endI) {
+void FA::addRule(int from, int label, int to) {
+    this->delta->addRule(from, label, to);
 
-}
-
-void FA::getTransition(int j, int *pInt, int *pInt1, int *pInt2) {
-
-}
-
-void FA::addTempArc(int s1, const int alpha, int s2) {
 
 }
 
-void FA::addTempGoal(int s) {
+void FA::printRules() {
+    cout << "init: ";
+    for(int i : sInit) {
+        cout << " n" << i;
+    }
+    cout << endl;
+    cout << "goal: ";
+    for (int g : sGoal) {
+        cout << " n" << g;
+    }
+    cout << endl;
+    cout << endl;
 
+    delta->fullIterInit();
+    tStateID from, to;
+    tLabelID label;
+    while (delta->fullIterNext(&from, &label, &to)) {
+        cout << " - n" << from << " -> n" << to << " label=c" << label << endl;
+    }
 }

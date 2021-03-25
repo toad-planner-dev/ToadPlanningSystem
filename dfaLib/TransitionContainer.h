@@ -6,42 +6,81 @@
 #define TOAD_TRANSITIONCONTAINER_H
 
 #include <vector>
+#include <set>
+#include <unordered_map>
 
 using namespace std;
 
-typedef unsigned int fdaType;
+// typedef
+typedef unsigned int tStateID;
+typedef unsigned short tLabelID;
+typedef unordered_map<tStateID, set<tLabelID> *> innerFW;
+typedef unordered_map<tStateID, set<tStateID> *> innerBW;
+typedef unordered_map<tStateID, innerFW *> transitionFW;
+typedef unordered_map<tLabelID, innerBW *> transitionBW;
 
 class TransitionContainer {
-    const int cFrom = 0;
-    const int cLabel = 1;
-    const int cTo = 2;
+    transitionFW *forward; // from -> (to -> label)
+    transitionBW *backward; // label -> (to -> from)
 
-    const int containerMB = 100;
-    const int containerSize = (containerMB * 1024 * 1024) / sizeof(fdaType) / 3;
-    int size;
-    vector<int*> data;
+    int numTransitions = 0;
 
-    int sortedBy = -1;
+    // - it is possible to either maintain both directions or just one
+    // - by default, only the backward system is maintained (it might be copied to forward, *moved* to forward)
+    // - the following variables show which one is valid, functions like "addRule" will only maintain those that are valid
+    bool bwValid = true;
+    bool fwValid = true;
 
-    void quicksort(int lo, int hi, int by);
-    int partition(int lo, int hi, int by);
-    int compare(int i, int j, int by);
+    void addToBW(tStateID from, tLabelID alpha, tStateID to, bool &didIncrease);
 
-    void freeUnusedMemory();
+    void addToFW(tStateID from, tLabelID alpha, tStateID to, bool didIncrease);
+
+    // iterators
+
+    // iterator over outgoing arcs of a state
+    bool iterBlocked = true;
+    innerFW::iterator iterToState;
+    innerFW::iterator iterToStateEnd;
+
+    set<tLabelID>::iterator iterLabel;
+    set<tLabelID>::iterator iterLabelEnd;
+
 public:
     TransitionContainer();
+
     ~TransitionContainer();
-    void sortByFrom();
-    void sortByLabel();
-    void sortByTo();
-    void makeSortedSet();
 
-    void get(int i, int *from, int *alpha, int *to);
-    void getAndDeleteLast(int *from, int *alpha, int *to);
-    void append(int from, int alpha, int to);
-    void set(int i, int from, int alpha, int to);
-    int getSize();
+    // perform index transformation
+    void *updateFAData(int *indexMapping);
 
+    // get all states with an edge labeled "label" that reaches to
+    set<tStateID> *getFrom(int to, int label);
+
+    // add a rule to the transition system
+    void addRule(tStateID from, tLabelID alpha, tStateID to);
+
+    // iterate over outgoing edges
+    void outIterInit(tStateID from);
+
+    bool outIterNext(tLabelID *alpha, tStateID *to);
+
+    // iterate over all transitions
+    void fullIterInit();
+
+    bool fullIterNext(tStateID *from, tLabelID *label, tStateID *to);
+
+    // temporarily stored transition system
+    void addTempArc(tStateID from, tLabelID label, tStateID to);
+
+    // free memory
+    void freeFW();
+
+    void freeBW();
+
+    void switchToTemp();
+
+    void copyBWtoFW();
+    void copyFWtoBW();
 };
 
 

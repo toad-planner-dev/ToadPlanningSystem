@@ -54,8 +54,8 @@ void RPGReachability::computeReachability(FiniteAutomaton *dfa) {
         // test applicability of all actions applicable from the current DFA states
         dfaNext->clear();
         for(int from : *dfaNow) {
-            if (dfa->fda2.find(from) == dfa->fda2.end()) continue;
-            for (auto &it2: *dfa->fda2.at(from)) {
+            if (dfa->data.find(from) == dfa->data.end()) continue;
+            for (auto &it2: *dfa->data.at(from)) {
                 int to = it2.first;
                 set<int> actions = *it2.second;
                 for (int a : actions) {

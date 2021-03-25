@@ -8,14 +8,13 @@
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include "TransitionContainer.h"
 
 using namespace std;
 
-typedef unordered_map<int, unordered_map<int, set<int> *> *> FAData;
 
 class FA {
-    unordered_map<int, unordered_map<int, set<int> *> *> *data;
-    int numTransitions = 0;
+    TransitionContainer* delta;
 
     // for minimization
     int *partitions;
@@ -35,28 +34,7 @@ class FA {
     bool XYintersectNotEq(int Y);
 
     int compByPartition(int i, int pivot);
-
-    FAData *updateFAData(int &numTransitions2);
-
-public:
-    FA();
-    ~FA();
-    int numStates = -1;
-    int sInit = -1;
-    set<int> sGoal;
-    int numSymbols = -1;
-
-    void addRule(int from, int alpha, int to);
-
-    void minimize();
-
-    void compileToDFA();
-
-    set<int> *getFrom(int to, int c);
-
     void qsSwap(int i, int j);
-
-    void printDOT();
 
     void sortByIndex(int lo, int hi);
 
@@ -64,13 +42,24 @@ public:
 
     int compByIndex(int i, int j);
 
-    void getOutgoingArcs(int s, int *startI, int *endI);
+public:
+    FA();
+    ~FA();
+    int maxStateID = -1;
+    int numSymbols = -1;
 
-    void getTransition(int j, int *pInt, int *pInt1, int *pInt2);
+    set<int> sInit;
+    set<int> sGoal;
 
-    void addTempArc(int s1, const int alpha, int s2);
+    void minimize();
 
-    void addTempGoal(int s);
+    void compileToDFA();
+
+    void printDOT();
+
+    void printRules();
+
+    void addRule(int from, int label, int to);
 };
 
 

@@ -96,10 +96,10 @@ FiniteAutomaton::~FiniteAutomaton() {
     #ifndef NDEBUG
 
 
-    for (pair<int, unordered_map<int, set<int>*>*> i=fda2.begin(); i != fda2.end(); i++)
-    fda2.begin().
-    for(x = fda2.begin()) {
-        for(auto y : fda2) {
+    for (pair<int, unordered_map<int, set<int>*>*> i=data.begin(); i != data.end(); i++)
+    data.begin().
+    for(x = data.begin()) {
+        for(auto y : data) {
             delete y.second;
         }
         delete x.second;

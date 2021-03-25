@@ -23,4 +23,4 @@ add_executable(toad main.cpp
         dfsDelRelReachability.cpp
         dfaLib/FA.h dfaLib/FA.cpp
         dfaLib/NFAtoDFA/psState.cpp dfaLib/NFAtoDFA/psState.h
-        dfaLib/NFAtoDFA/TransitionContainer.cpp dfaLib/NFAtoDFA/TransitionContainer.h)
+        dfaLib/TransitionContainer.cpp dfaLib/TransitionContainer.h)

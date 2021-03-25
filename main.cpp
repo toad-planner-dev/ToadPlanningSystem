@@ -11,6 +11,9 @@
 #include "ChainWriter.h"
 #include "utils/TripleSet.h"
 #include "BinSetWriter.h"
+#include "hDfaDistance.h"
+#include "dfsDelRelReachability.h"
+#include "dfaLib/FA.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -21,7 +24,40 @@ using namespace std;
 using namespace progression;
 
 int main(int argc, char *argv[]) {
+
     std::cout << "TOAD - Total Order HTN Approximation with DFA." << std::endl;
+
+    FA fa;
+
+    //fa.compileToDFA();
+
+
+    fa.sInit.insert(0);
+    fa.sGoal.insert(2);
+    fa.sGoal.insert(3);
+    fa.sGoal.insert(4);
+    fa.maxStateID = 6;
+    fa.numSymbols = 2;
+    fa.addRule(0,0,1);
+    fa.addRule(0,1,2);
+    fa.addRule(1,0,0);
+    fa.addRule(1,1,3);
+    fa.addRule(2,0,4);
+    fa.addRule(2,1,5);
+    fa.addRule(3,0,4);
+    fa.addRule(3,1,5);
+    fa.addRule(4,0,4);
+    fa.addRule(4,1,5);
+    fa.addRule(5,0,5);
+    fa.addRule(5,1,5);
+    //fa.printRules();
+
+    fa.printDOT();
+    fa.minimize();
+    //fa.printRules();
+    fa.printDOT();
+
+    exit(0);
 
 #ifndef NDEBUG
     cout
@@ -186,6 +222,12 @@ int main(int argc, char *argv[]) {
     RPGReachability *rpg = new RPGReachability(htn);
     rpg->computeReachability(to2s->dfa);
     */
+
+    //string hFile = "dfad.heuristic";
+    //hDfaDistance dfad;
+    //dfad.write(hFile, to2s->dfa, htn);
+    dfsDelRelReachability drReachability;
+    drReachability.reachabilityAnalysis(to2s->dfa, htn);
 
     cout << "Creating output model" << endl;
     string dFile = "domain.pddl";
