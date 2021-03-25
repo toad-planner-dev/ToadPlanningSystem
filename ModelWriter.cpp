@@ -288,7 +288,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
                 if (from != to) { // dfa effect
                     os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
                 }
-                os << 1 << "\n"; // action costs, 0 means unicosts
+                os << m->actionCosts[i] << "\n"; // action costs
                 os << "end_operator\n";
             }
         }
@@ -304,7 +304,7 @@ void ModelWriter::writeSASPlus(ostream &os, unordered_map<int, unordered_map<int
                 os << 0 << "\n"; // prevail constraints
                 os << 1 << "\n"; // effects
                 os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
-                os << 1 << "\n"; // action costs, 0 means unicosts
+                os << 0 << "\n"; // action costs
                 os << "end_operator\n";
             }
         }
