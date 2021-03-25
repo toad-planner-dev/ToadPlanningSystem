@@ -6,8 +6,19 @@
 #define TOAD_HDFADISTANCE_H
 
 
-class hDfaDistance {
+#include "translation/FiniteAutomaton.h"
+#include "htnModel/Model.h"
 
+class hDfaDistance {
+private:
+    unordered_map<int, unordered_map<int, int>*>* g;
+    unordered_map<int, int>* hVals;
+public:
+    void write(const string& filename, FiniteAutomaton *dfa, progression::Model *htn);
+
+    void generateInverseGraph(FiniteAutomaton *dfa, progression::Model *htn);
+
+    void generateHeuVals();
 };
 
 
