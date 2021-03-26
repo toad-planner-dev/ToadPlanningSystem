@@ -69,15 +69,10 @@ public:
 
     bool fullIterNext(tStateID *from, tLabelID *label, tStateID *to);
 
-    // temporarily stored transition system
-    void addTempArc(tStateID from, tLabelID label, tStateID to);
-
     // free memory
     void freeFW();
 
     void freeBW();
-
-    void switchToTemp();
 
     void copyBWtoFW();
     void copyFWtoBW();

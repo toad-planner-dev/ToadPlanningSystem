@@ -277,46 +277,6 @@ bool TransitionContainer::fullIterNext(tStateID *from, tLabelID *label, tStateID
     }
 }
 
-transitionFW *tempforward = nullptr;
-int tempTransitions;
-void TransitionContainer::addTempArc(tStateID from, tLabelID label, tStateID to) {
-    if (tempforward == tempforward) {
-        tempforward = new transitionFW;
-        tempTransitions = 0;
-    }
-
-    // structure of forward: from -> (to -> label)
-    unordered_map<tStateID, set<tLabelID> *> *toLabelMap;
-    auto posInFromSet = tempforward->find(from);
-    if (posInFromSet != tempforward->end()) {
-        toLabelMap = posInFromSet->second;
-    } else {
-        toLabelMap = new unordered_map<tStateID, set<tLabelID> *>;
-        tempforward->insert({from, toLabelMap});
-    }
-
-    set<tLabelID> *labelSet;
-    auto posInTLMap = toLabelMap->find(to);
-    if (posInTLMap != toLabelMap->end()) {
-        labelSet = posInTLMap->second;
-    } else {
-        labelSet = new set<tLabelID>;
-        toLabelMap->insert({to, labelSet});
-    }
-
-    if (labelSet->find(label) == labelSet->end()) {
-        tempTransitions++;
-        labelSet->insert(label);
-    }
-}
-
-void TransitionContainer::switchToTemp() {
-    freeFW();
-    freeBW();
-    this->forward = tempforward;
-    tempforward = nullptr;
-    this->numTransitions = tempTransitions;
-}
 
 void TransitionContainer::copyBWtoFW() {
     //transitionFW *forward; // from -> (to -> label)

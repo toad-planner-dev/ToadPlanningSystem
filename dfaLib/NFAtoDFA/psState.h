@@ -29,7 +29,7 @@ struct psState {
     psState(){}
     psState(tStateID* e, int length) {
         elems = e;
-        length = length;
+        this->length = length;
     }
 };
 
@@ -50,8 +50,7 @@ struct psStatePointedEq {
         if (s1->length != s2->length) {
             return false;
         } else {
-            int maxI = max(s1->length, s2->length);
-            for (int i = 0; i < maxI; i++) {
+            for (int i = 0; i < s1->length; i++) {
                 if (s1->elems[i] != s2->elems[i]) {
                     return false;
                 }

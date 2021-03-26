@@ -31,12 +31,12 @@ int main(int argc, char *argv[]) {
 
     //fa.compileToDFA();
 
-
+/* test minimization
     fa.sInit.insert(0);
     fa.sGoal.insert(2);
     fa.sGoal.insert(3);
     fa.sGoal.insert(4);
-    fa.maxStateID = 6;
+    fa.numStates = 6;
     fa.numSymbols = 2;
     fa.addRule(0,0,1);
     fa.addRule(0,1,2);
@@ -51,9 +51,22 @@ int main(int argc, char *argv[]) {
     fa.addRule(5,0,5);
     fa.addRule(5,1,5);
     //fa.printRules();
+*/
+    fa.sInit.insert(0);
+    fa.sGoal.insert(1);
+    fa.numStates = 4;
+    fa.numSymbols = 2;
+    fa.addRule(0,0,0);
+    fa.addRule(0,0,2);
+    fa.addRule(0,1,0);
+    fa.addRule(2,0,3);
+    fa.addRule(2,1,3);
+    fa.addRule(3,0,1);
+    fa.addRule(3,1,1);
 
     fa.printDOT();
-    fa.minimize();
+    fa.compileToDFA();
+    //fa.minimize();
     //fa.printRules();
     fa.printDOT();
 

@@ -45,8 +45,8 @@ class FA {
 public:
     FA();
     ~FA();
-    int maxStateID = -1;
-    int numSymbols = -1;
+    int numStates = 0;
+    int numSymbols = 0;
 
     set<int> sInit;
     set<int> sGoal;
