@@ -7,6 +7,8 @@
 #include <unordered_map>
 #include <fstream>
 #include <map>
+#include <vector>
+#include "../dfaLib/FA.h"
 
 void CFGtoFDAtranslator::addRule(vector<int> *r) {
     grRule *r2 = new grRule();
@@ -70,7 +72,7 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
                             makeFA(q0, copySubSeq(rule, 0, rule->rLength), qC);
                         } else {
                             int qD = qB[D];
-                            if(rule->rLength > 1) {
+                            if (rule->rLength > 1) {
                                 makeFA(qD, copySubSeq(rule, 1, rule->rLength), qC);
                             } else {
                                 makeFA(qD, -1, qC);
@@ -90,14 +92,14 @@ void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
                         grRule *rule = rules[l];
                         int D = rule->right[rule->rLength - 1]; // last right-hand side
                         int Nk = -1;
-                        if(D >= 0) {
+                        if (D >= 0) {
                             Nk = SymToNi[D];
                         }
                         if (Nk != Nl) {
                             makeFA(qC, copySubSeq(rule, 0, rule->rLength), q1);
                         } else {
                             int qD = qB[D];
-                            if(rule->rLength > 1) {
+                            if (rule->rLength > 1) {
                                 makeFA(qC, copySubSeq(rule, 0, rule->rLength - 1), qD);
                             } else {
                                 makeFA(qC, -1, qD);
@@ -219,27 +221,27 @@ void CFGtoFDAtranslator::initDataStructures() {
     }
     vector<int> todo;
     vector<bool> reached;
-    for(int i = 0; i < numSymbols; i++) {
+    for (int i = 0; i < numSymbols; i++) {
         reached.push_back(false);
     }
-    for(int i = 0; i < numTerminals; i++) {
+    for (int i = 0; i < numTerminals; i++) {
         todo.push_back(i);
         reached[i] = true;
     }
-    for(int s : symWithEpsilonRules) {
+    for (int s : symWithEpsilonRules) {
         todo.push_back(s);
         reached[s] = true;
     }
-    while(!todo.empty()) {
+    while (!todo.empty()) {
         int s = todo.back();
         todo.pop_back();
-        if(containedInRight->find(s) == containedInRight->end()) {
+        if (containedInRight->find(s) == containedInRight->end()) {
             continue;
         }
-        for(grRule* r : *containedInRight->at(s)) {
-            if(--r->temp == 0) {
+        for (grRule *r : *containedInRight->at(s)) {
+            if (--r->temp == 0) {
                 int sym = r->left;
-                if(!reached[sym]) {
+                if (!reached[sym]) {
                     todo.push_back(r->left);
                     reached[sym] = true;
                 }
@@ -247,11 +249,11 @@ void CFGtoFDAtranslator::initDataStructures() {
         }
     }
     vector<int> unobsSymbols;
-    set<grRule*> deleteRules;
-    for(int i = 0; i < numSymbols; i++) {
-        if(!reached[i]) {
+    set<grRule *> deleteRules;
+    for (int i = 0; i < numSymbols; i++) {
+        if (!reached[i]) {
             unobsSymbols.push_back(i);
-            for(grRule* r : *containedInRight->at(i)) {
+            for (grRule *r : *containedInRight->at(i)) {
                 deleteRules.insert(r);
                 r->markedForDelete = true;
             }
@@ -264,10 +266,10 @@ void CFGtoFDAtranslator::initDataStructures() {
     rules = new grRule *[numRules];
     int newI = 0;
     for (int i = 0; i < tempRules.size(); i++) {
-        grRule* r =tempRules.at(i);
-        if(r->markedForDelete)
+        grRule *r = tempRules.at(i);
+        if (r->markedForDelete)
             continue;
-        if(r->rLength == 0) {
+        if (r->rLength == 0) {
             r->rLength = 1;
             r->right = new int[1];
             r->right[0] = -1;
@@ -373,7 +375,7 @@ void CFGtoFDAtranslator::analyseRules(bool writeProtocol) {
             containsCyclic = true;
         }
     }
-    if(printDebug) {
+    if (printDebug) {
         for (int i = 0; i < NumNis; i++) {
             cout << "  - N" << i << " ";
             if (NiRec[i] == recRight) {
@@ -606,7 +608,6 @@ void CFGtoFDAtranslator::calcSCCs(int tinit) {
         j++;
     }
 
-
     NumNis = numCyclicSccs;
     NiSize = new int[numCyclicSccs];
     Ni = new int *[numCyclicSccs];
@@ -652,7 +653,7 @@ void CFGtoFDAtranslator::tarjan(int v) {
             grRule *r = rules[i];
             for (int j = 0; j < r->rLength; j++) {
                 int w = r->right[j];
-                if(w < 0)
+                if (w < 0)
                     continue; // epsilon transition
                 if (U[w]) {
                     tarjan(w);
@@ -688,8 +689,473 @@ CFGtoFDAtranslator::~CFGtoFDAtranslator() {
 }
 
 void CFGtoFDAtranslator::printRules() {
-    for(int i = 0; i < numRules; i++) {
+    for (int i = 0; i < numRules; i++) {
         grRule *r = rules[i];
         printRule(r);
     }
 }
+
+
+// *************************************************
+// * New Stuff
+// *************************************************
+
+FA * CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
+    // construct SCCs and topsort of SCCs
+    /*calcSCCs(tinit);
+    sccs = new vector<int>[numSCCs];
+    for (int i = numTerminals; i < numSymbols; i++) {
+        sccs[SymToNi[i]].push_back(i);
+    }*/
+    //recursion = getRecInfo(sccs);
+
+/*
+    cout << "SCC info" << endl;
+    cout <<  NumNis << endl;
+    for (int i = 0; i < NumNis; i++) {
+        cout << "N" << i << " " << NiRec[i] << endl;
+    }
+
+    for(int i = 0; i < numSymbols; i++) {
+        cout << "sym " << i << " " << SymToNi[i] << endl;
+    }
+*/
+
+//    exit(1);
+
+    FA* fa = getFA(tinit);
+    //cout << fa->sGoal.size() << " " << fa->sInit.size() << endl;
+    cout << "toDFA " << fa->delta->numTransitions << " -> ";
+    fa->compileToDFA();
+    cout << fa->delta->numTransitions << endl;
+//    fa->showDOT(htn->taskNames);
+    //fa->showDOT();
+    cout << "State-pruning " << fa->delta->numTransitions << " -> ";
+    statePruning(htn, fa);
+    cout << fa->delta->numTransitions << endl;
+    //fa->compileToDFA();
+    //cout << fa->delta->numTransitions << " -> ";
+    //fa->showDOT();
+    cout << "Minimization " << fa->delta->numTransitions << " -> ";
+    fa->minimize();
+    cout << fa->delta->numTransitions << endl;
+    //fa->showDOT();
+    //fa->showDOT(htn->taskNames);
+    assert(fa->numStatesCorrect());
+    return fa;
+}
+
+FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
+    int Nj = SymToNi[alpha];
+    FA *fa;
+    if (SymToNi[alpha] == -1) {
+        fa = getFaNonRec(alpha);
+    } else if (NiRec[Nj] == recLeft) {
+        fa = getFaLeftRec(alpha);
+    } else {
+        fa = getFaRightRec(alpha);
+    }
+//    fa->compileToDFA();
+    //fa->showDOT();
+
+    // replace non-terminal symbols
+//    fa->delta->ensureFW(); // from -> (label -> to)
+//    for (auto from : *fa->delta->forward) {
+//        for (auto label = from.second->begin(); label != from.second->end();) {
+//            if (label->first >= this->numTerminals) {
+//                assert(label->second->size() == 1);
+//
+//                tStateID f = from.first;
+//                tLabelID l = label->first;
+//                tStateID t = *label->second->begin();
+//
+//                delete label->second;
+//                label = from.second->erase(label);
+//
+//                FA *fa2 = getFA(l);
+//                assert(fa2->isPrimitive(numTerminals));
+//                fa->addSubFA(f, fa2, t);
+//            } else {
+//                label++;
+//            }
+//        }
+//    }
+   // assert(fa->isPrimitive(numTerminals));
+    return fa;
+}
+
+FA *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
+    FA* fa = new FA();
+    int s0 = 0;
+    int sF = 1;
+    fa->sInit.insert(s0);
+    fa->sGoal.insert(sF);
+    fa->numSymbols = numSymbols;
+
+    fa->numStates = 2;
+    for (int j = rFirst[A]; j <= rLast[A]; j++) {
+        assert(rules[j]->left == A);
+        //printRule(rules[j]);
+        int lastState = s0;
+        for (int k = 0; k < rules[j]->rLength; k++) {
+            int label = rules[j]->right[k];
+            if (k < rules[j]->rLength - 1) {
+                int newState = fa->numStates;
+                fa->numStates++;
+                if (this->isTerminalSym(label)) {
+                    fa->addRule(lastState, label, newState);
+                } else {
+                    FA* subFA = getFA(label);
+                    fa->addSubFA(lastState, subFA, newState);
+                }
+                lastState = newState;
+            } else {
+                if (this->isTerminalSym(label)) {
+                    fa->addRule(lastState, label, sF);
+                } else {
+                    FA* subFA = getFA(label);
+                    fa->addSubFA(lastState, subFA, sF);
+                }
+            }
+        }
+    }
+    if (!fa->numStatesCorrect()) {
+        fa->showDOT();
+        fa->numStatesCorrect();
+    }
+    //fa->showDOT();
+    assert(fa->numStatesCorrect());
+    return fa;
+}
+
+FA *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
+    int Nj = SymToNi[A];
+    FA *fa = new FA();
+
+    int s0 = 0;
+    fa->sInit.insert(s0);
+    fa->numSymbols = numSymbols;
+    map<int, int> symToState;
+    symToState.insert({A, 1});
+    fa->numStates = 2;
+
+    for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
+        int C = Ni[Nj][i];
+        if (C != A) {
+            symToState.insert({C, fa->numStates++});
+        }
+    }
+    fa->sGoal.insert(symToState[A]);
+
+    for (int i = 0; i < NiSize[Nj]; i++) {
+        int C = Ni[Nj][i];
+        for (int l = rFirst[C]; l <= rLast[C]; l++) {
+            // need to detect whether this is a recursive method or not
+            grRule *rule = rules[l];
+            //printRule(rule);
+            assert(rule->left == C);
+            assert(SymToNi[C] == Nj);
+            int D = rule->right[0]; // first right-hand side
+            int Nk = -1;
+            if (D >= 0) { // might be epsilon
+                Nk = SymToNi[D];
+            }
+            int k;
+            int lastState;
+            if (Nj != Nk) { // non-recursive
+                k = 0;
+                lastState = s0;
+            } else { // recursive
+                k = 1; // first one is in same Nj
+                lastState = symToState[D];
+            }
+            for (; k < rule->rLength; k++) {
+                int label = rule->right[k];
+                if (k < rule->rLength - 1) {
+                    int newState = fa->numStates;
+                    fa->numStates++;
+                    if (this->isTerminalSym(label)) {
+                        fa->addRule(lastState, label, newState);
+                    } else {
+                        FA* subFA = getFA(label);
+                        fa->addSubFA(lastState, subFA, newState);
+                    }
+                    lastState = newState;
+                } else {
+                    if (this->isTerminalSym(label)) {
+                        fa->addRule(lastState, label, symToState[C]);
+                    } else {
+                        FA* subFA = getFA(label);
+                        fa->addSubFA(lastState, subFA, symToState[C]);
+                    }
+                }
+            }
+        }
+    }
+    if (!fa->numStatesCorrect()) {
+        fa->showDOT();
+        fa->numStatesCorrect();
+    }
+    //fa->showDOT();
+    assert(fa->numStatesCorrect());
+    return fa;
+}
+
+FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
+    int Nj =  SymToNi[A];
+    FA *fa = new FA();
+    fa->numSymbols = numSymbols;
+
+    map<int, int> symToState;
+    int sF = 1;
+    fa->sGoal.insert(sF);
+    symToState.insert({A, 0});
+    fa->numStates = 2;
+
+    for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
+        int C = Ni[Nj][i];
+        if (C != A) {
+            symToState.insert({C, fa->numStates++});
+        }
+    }
+
+    int s0 = symToState[A];
+    fa->sInit.insert(s0);
+
+    for (int i = 0; i < NiSize[Nj]; i++) {
+        int C = Ni[Nj][i];
+        for (int l = rFirst[C]; l <= rLast[C]; l++) {
+            // need to detect whether this is a recursive method or not
+            grRule *rule = rules[l];
+            //printRule(rule);
+            assert(rule->left == C);
+            assert(SymToNi[C] == Nj);
+            int D = rule->right[rule->rLength - 1]; // last right-hand side
+            int Nk = -1;
+            if (D >= 0) { // might be epsilon
+                Nk = SymToNi[D];
+            }
+            bool isRecursive = (Nj == Nk);
+            int proceedTo = rule->rLength;
+            if (isRecursive) { // last symbol not processed
+                proceedTo--;
+            }
+            int lastState = symToState[C];
+            for (int k = 0; k < proceedTo; k++) {
+                int label = rule->right[k];
+                if (k < proceedTo - 1) {
+                    int newState = fa->numStates;
+                    fa->numStates++;
+                    if (this->isTerminalSym(label)) {
+                        fa->addRule(lastState, label, newState);
+                    } else {
+                        FA* subFA = getFA(label);
+                        fa->addSubFA(lastState, subFA, newState);
+                    }
+                    lastState = newState;
+                } else {
+                    if (!isRecursive) { // non-recursive
+                        if (this->isTerminalSym(label)) {
+                            fa->addRule(lastState, label, sF);
+                        } else {
+                            FA* subFA = getFA(label);
+                            fa->addSubFA(lastState, subFA, sF);
+                        }
+                    } else { // recursive
+                        if (this->isTerminalSym(label)) {
+                            fa->addRule(lastState, label, symToState[D]);
+                        } else {
+                            FA* subFA = getFA(label);
+                            fa->addSubFA(lastState, subFA, symToState[D]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (!fa->numStatesCorrect()) {
+        fa->showDOT();
+        fa->numStatesCorrect();
+    }
+    //fa->showDOT();
+    assert(fa->numStatesCorrect());
+
+    return fa;
+}
+
+void CFGtoFDAtranslator::statePruning(Model *htn, FA *pFa) {
+    pFa->delta->ensureBW();
+    unordered_map<tStateID, set<int>*> pStates; // partial state that holds with certainty
+    for (auto l : *pFa->delta->backward) {
+        for (auto to : *l.second) {
+            if (pStates.find(to.first) == pStates.end()) {
+                set<int>* pState = new set<int>;
+                pStates.insert({to.first, pState});
+                int action = l.first;
+
+                // preconditions that are not changed
+                for (int i = 0; i < htn->numPrecs[action]; i++) {
+                    int prec = htn->precLists[action][i];
+                    pState->insert(prec);
+                }
+                // effects
+                for (int i = 0; i < htn->numDels[action]; i++) {
+                    int del = htn->delLists[action][i];
+                    pState->erase(del);
+                }
+                for (int i = 0; i < htn->numAdds[action]; i++) {
+                    int add = htn->addLists[action][i];
+                    pState->insert(add);
+                }
+            } else {
+                set<int>* pState = pStates.find(to.first)->second;
+                if (pState == nullptr) {
+                    continue;
+                }
+                // intersect old set with (unchanged precs \cup add effects)
+                set<int>* tempPState = new set<int>;
+                int action = l.first;
+
+                // preconditions that are not changed
+                for (int i = 0; i < htn->numPrecs[action]; i++) {
+                    int prec = htn->precLists[action][i];
+                    tempPState->insert(prec);
+                }
+                // effects
+                for (int i = 0; i < htn->numDels[action]; i++) {
+                    int del = htn->delLists[action][i];
+                    tempPState->erase(del);
+                }
+                for (int i = 0; i < htn->numAdds[action]; i++) {
+                    int add = htn->addLists[action][i];
+                    tempPState->insert(add);
+                }
+                for(auto iter = pState->begin(); iter != pState->end(); ) {
+                    int p = *iter;
+                    if (tempPState->find(p) == tempPState->end()) {
+                        iter = pState->erase(iter);
+                    } else {
+                        ++iter;
+                    }
+                }
+                delete tempPState;
+
+                if (pState->empty()) { // closed
+                    delete pState;
+                    pStates.at(to.first) = nullptr;
+                }
+            }
+        }
+    }
+//    cout << endl;
+//    for (auto pState : pStates) {
+//        if (pState.second == nullptr) {
+//            continue;
+//        }
+//        cout << pState.first <<  ":";
+//        for(int p : *pState.second) {
+//            cout << " " << htn->factStrs[p];
+//        }
+//         cout << endl;
+//    }
+//    cout << endl;
+
+    pFa->delta->ensureFW();
+    for (auto from : *pFa->delta->forward) {
+        if ((pStates.find(from.first) == pStates.end()) || (pStates.find(from.first)->second == nullptr)) {
+            continue;
+        }
+
+        set<int> pState = *pStates.find(from.first)->second;
+
+        //for (auto actions : *from.second) {
+        for (auto iter = from.second->begin(); iter != from.second->end(); ) {
+            auto actions = *iter;
+            bool applicable = true;
+            int action = actions.first;
+            for (int i = 0; i < htn->numPrecs[action]; i++) {
+                int p = htn->precLists[action][i];
+                int var =  htn->bitToVar[p];
+                for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
+                    if ((j != p) && (pState.find(j) != pState.end())) {
+//                        cout << "delete n" << from.first << " action " << htn->taskNames[action] << endl;
+                        applicable = false;
+                        break;
+                    }
+                }
+                if (!applicable) {
+                    break;
+                }
+            }
+            if (!applicable) {
+                delete actions.second;
+                iter = from.second->erase(iter);
+                pFa->delta->numTransitions--;
+            } else {
+                iter++;
+            }
+        }
+    }
+    for (auto pState : pStates) {
+        delete pState.second;
+    }
+}
+
+//
+//eRecursion * CFGtoFDAtranslator::getRecInfo(const vector<int> *sccs) {
+//    eRecursion* recursion = new eRecursion[numSCCs];
+//    for(int i = 0; i < numSCCs; i++) {
+//        bool leftGen = false;
+//        bool rightGen = false;
+//        for (int C : sccs[i]) {
+//            for (int l = rFirst[C]; l <= rLast[C]; l++) {
+//                printRule(rules[l]);
+//                leftGen = leftGen || rules[l]->isLeftGenerating;
+//                rightGen = rightGen || rules[l]->isRightGenerating;
+//                if (leftGen && rightGen) {
+//                    break;
+//                }
+//            }
+//            if (leftGen && rightGen) {
+//                break;
+//            }
+//        }
+//        if (leftGen && rightGen) {
+//            recursion[i] = rSELF;
+//            cout << "scc" << i << " " << "self" << endl;
+//        } else if(leftGen) {
+//            recursion[i] = rRIGHT;
+//            cout << "scc" << i << " " << "right" << endl;
+//        } else if(rightGen) {
+//            recursion[i] = rLEFT;
+//            cout << "scc" << i << " " << "left" << endl;
+//        } else {
+//            recursion[i] = rNONE;
+//            //cout << "scc" << i << " " << "none" << endl;
+//        }
+//    }
+//    return recursion;
+//}
+
+
+/*
+// want to delete FA as early as possible, calc how long they are needed
+int* keepUntil = new int[numSymbols];
+for(int i = 0; i < numSymbols; i++) {
+    keepUntil[i] = -1;
+}
+for(int i = 0; i < numSCCs; i++) {
+    // go through rules, when a rule for a task in scc i uses task x, x needs to be kept until after scc i
+    for (int C : sccs[i]) {
+        for (int l = rFirst[C]; l <= rLast[C]; l++) {
+            for (int j = 0; j < rules[l]->rLength; j++) {
+                int sym = rules[l]->right[j];
+                keepUntil[sym] = i;
+            }
+        }
+    }
+}
+for(int i = 0; i < numSymbols; i++) {
+    cout << "keep " << i << " until after scc " << keepUntil[i] << endl;
+}
+*/

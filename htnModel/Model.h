@@ -80,6 +80,7 @@ public:
 	int* firstIndex;
 	int* lastIndex;
 	string* varNames;
+	int* bitToVar;
 
 	// additional strict mutexes
 	int numStrictMutexes;

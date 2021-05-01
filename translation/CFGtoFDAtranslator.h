@@ -6,12 +6,15 @@
 #define TOSTRIPSAPPROXIMATION_CFGTOFDATRANSLATOR_H
 
 #include <list>
+#include <map>
 #include <vector>
 #include "FiniteAutomaton.h"
 #include "../htnModel/Model.h"
+#include "../dfaLib/FA.h"
 
 using namespace std;
 
+enum eRecursion {rNONE, rLEFT, rRIGHT, rSELF};
 
 struct grRule {
     int left = -1; // left-hand symbol
@@ -96,6 +99,23 @@ public:
     vector<grRule *> tempRules;
 
     void printRules();
+
+    FA * makeFABU(Model *htn, int tinit);
+
+//    eRecursion * getRecInfo(const vector<int> *sccs);
+
+    map<int, FA *> FAs;
+    //eRecursion* recursion;
+    //vector<int> * sccs;
+    FA *getFA(tLabelID alpha);
+
+    FA *getFaNonRec(tLabelID  A);
+
+    FA * getFaRightRec(tLabelID  A);
+
+    FA *getFaLeftRec(tLabelID  A);
+
+    void statePruning(Model *htn, FA *pFa);
 };
 
 

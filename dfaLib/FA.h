@@ -14,7 +14,7 @@ using namespace std;
 
 
 class FA {
-    TransitionContainer* delta;
+
 
     // for minimization
     int *partitions;
@@ -29,7 +29,7 @@ class FA {
 
     int partByPartition(int lo, int hi);
 
-    void reachesAbyCtoX(int a, int c);
+    void reachesAbyCtoX(int AStart, int AEnd, int c);
 
     bool XYintersectNotEq(int Y);
 
@@ -42,7 +42,11 @@ class FA {
 
     int compByIndex(int i, int j);
 
+    void getEpsilonClosure(set<tStateID> *pSet);
+
 public:
+    TransitionContainer* delta;
+
     FA();
     ~FA();
     int numStates = 0;
@@ -60,6 +64,20 @@ public:
     void printRules();
 
     void addRule(int from, int label, int to);
+
+    void showDOT();
+
+    void addSubFA(tStateID from, FA *pFa, tStateID to);
+
+    void showDOT(string *pString);
+
+    bool numStatesCorrect();
+
+    bool isPrimitive(int numTerminals);
+
+    bool isSorted(int y);
+
+    bool XisSorted();
 };
 
 

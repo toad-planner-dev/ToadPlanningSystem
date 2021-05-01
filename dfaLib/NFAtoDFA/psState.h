@@ -27,6 +27,16 @@ struct psState {
     size_t hash = -1;
 
     psState(){}
+
+    psState(set<tStateID>* e){
+        this->elems = new tStateID[e->size()];
+        int i = 0;
+        for (int el : *e) {
+            this->elems[i++] = el;
+        }
+        this->length = e->size();
+    }
+
     psState(tStateID* e, int length) {
         elems = e;
         this->length = length;

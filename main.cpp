@@ -14,6 +14,7 @@
 #include "hDfaDistance.h"
 #include "dfsDelRelReachability.h"
 #include "dfaLib/FA.h"
+#include "SASWriter.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -26,51 +27,55 @@ using namespace progression;
 int main(int argc, char *argv[]) {
 
     std::cout << "TOAD - Total Order HTN Approximation with DFA." << std::endl;
-
-    FA fa;
-
-    //fa.compileToDFA();
-
-/* test minimization
-    fa.sInit.insert(0);
-    fa.sGoal.insert(2);
-    fa.sGoal.insert(3);
-    fa.sGoal.insert(4);
-    fa.numStates = 6;
-    fa.numSymbols = 2;
-    fa.addRule(0,0,1);
-    fa.addRule(0,1,2);
-    fa.addRule(1,0,0);
-    fa.addRule(1,1,3);
-    fa.addRule(2,0,4);
-    fa.addRule(2,1,5);
-    fa.addRule(3,0,4);
-    fa.addRule(3,1,5);
-    fa.addRule(4,0,4);
-    fa.addRule(4,1,5);
-    fa.addRule(5,0,5);
-    fa.addRule(5,1,5);
-    //fa.printRules();
-*/
-    fa.sInit.insert(0);
-    fa.sGoal.insert(1);
-    fa.numStates = 4;
-    fa.numSymbols = 2;
-    fa.addRule(0,0,0);
-    fa.addRule(0,0,2);
-    fa.addRule(0,1,0);
-    fa.addRule(2,0,3);
-    fa.addRule(2,1,3);
-    fa.addRule(3,0,1);
-    fa.addRule(3,1,1);
-
-    fa.printDOT();
-    fa.compileToDFA();
-    //fa.minimize();
-    //fa.printRules();
-    fa.printDOT();
-
-    exit(0);
+//
+//    FA fa;
+//
+//    //fa.compileToDFA();
+//
+//    /*
+//    // test minimization
+//    fa.sInit.insert(0);
+//    fa.sGoal.insert(2);
+//    fa.sGoal.insert(3);
+//    fa.sGoal.insert(4);
+//    fa.numStates = 6;
+//    fa.numSymbols = 2;
+//    //fa.delta->ensureFW();
+//    fa.addRule(0,0,1);
+//    fa.addRule(0,1,2);
+//    fa.addRule(1,0,0);
+//    fa.addRule(1,1,3);
+//    fa.addRule(2,0,4);
+//    fa.addRule(2,1,5);
+//    fa.addRule(3,0,4);
+//    fa.addRule(3,1,5);
+//    fa.addRule(4,0,4);
+//    fa.addRule(4,1,5);
+//    fa.addRule(5,0,5);
+//    fa.addRule(5,1,5);
+//    fa.printRules();
+//     */
+//
+//    fa.sInit.insert(0);
+//    fa.sGoal.insert(1);
+//    fa.numStates = 4;
+//    fa.numSymbols = 2;
+//    fa.addRule(0,0,0);
+//    fa.addRule(0,0,2);
+//    fa.addRule(0,1,0);
+//    fa.addRule(2,0,3);
+//    fa.addRule(2,1,3);
+//    fa.addRule(3,0,1);
+//    fa.addRule(3,1,1);
+//
+//    //fa.delta.
+//    //fa.printDOT();
+//    fa.compileToDFA();
+//    fa.minimize();
+//    //fa.printRules();
+//    fa.printDOT();
+//
+//    exit(0);
 
 #ifndef NDEBUG
     cout
@@ -126,12 +131,12 @@ int main(int argc, char *argv[]) {
     }
     gettimeofday(&tp, NULL);
 
-    if (determineIfTR) {
-        TailRecAnalysis tra;
-        string filename = "/home/dh/Dokumente/versioniert/Source-Code/TOAD-Source/examples/testTR.lp";
-        tra.analyse(htn);
-        exit(0);
-    }
+//    if (determineIfTR) {
+//        TailRecAnalysis tra;
+//        string filename = "/home/dh/Dokumente/versioniert/Source-Code/TOAD-Source/examples/testTR.lp";
+//        tra.analyse(htn);
+//        exit(0);
+//    }
 
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
@@ -210,6 +215,19 @@ int main(int argc, char *argv[]) {
         startT = endT;
     }
     //to2s->printRules();
+
+    //to2s->printRules();
+    FA* fa = to2s->makeFABU(htn, htn->initialTask);
+    //fa->showDOT();
+    //fa->showDOT(htn->taskNames);
+    //exit(0);
+    string dFile2 = "domain.pddl";
+    string pFile2 = "problem.sas";
+
+    SASWriter mw2;
+    mw2.write(htn, fa, dFile2, pFile2);
+
+    exit(0);
 
     cout << "Creating DFA" << endl;
     cout << "- starting symbol: " << S << endl;

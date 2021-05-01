@@ -1669,6 +1669,13 @@ void Model::readClassical(istream& domainFile) {
 	getline(domainFile, line);
 	getline(domainFile, line);
 
+	bitToVar = new int[numStateBits];
+	for (int i = 0; i < numVars; i++) {
+	    for(int j = firstIndex[i]; j <= lastIndex[i]; j++) {
+	        bitToVar[j] = i;
+        }
+    }
+
 	for (int informationType = 0; informationType < 3; informationType++){
 		int & num = (informationType == 0) ? numStrictMutexes : ((informationType == 1) ? numMutexes : numInvariants);
 		int* & size = (informationType == 0) ? strictMutexesSize : ((informationType == 1) ? mutexesSize : invariantsSize);

@@ -2,10 +2,10 @@
 // Created by dh on 19.03.21.
 //
 
-#include <climits>
-#include <cassert>
 #include <map>
 #include "TransitionContainer.h"
+#include <iostream>
+#include <cassert>
 
 TransitionContainer::TransitionContainer() {
     forward = new transitionFW;
@@ -21,6 +21,7 @@ void TransitionContainer::freeFW() {
     // from -> (to -> label)
     if (forward == nullptr)
         return;
+
     for (auto from : *forward) {
         for (auto to : *from.second) {
             delete to.second;
@@ -33,18 +34,21 @@ void TransitionContainer::freeFW() {
 
 void TransitionContainer::freeBW() {
     // label -> (to -> from)
-  for (auto label : *backward) {
-      for (auto to : *label.second) {
-          delete to.second;
-      }
-      delete label.second;
-  }
-  delete backward;
+    if (backward == nullptr)
+        return;
+
+    for (auto label : *backward) {
+        for (auto to : *label.second) {
+            delete to.second;
+        }
+        delete label.second;
+    }
+    delete backward;
 }
 
 set<tStateID> *TransitionContainer::getFrom(int to, int label) {
     // structure of backward: label -> (to -> from)
-    assert(bwValid);
+    ensureBW();
 
     if (backward->find(label) != backward->end()) {
         auto temp = backward->at(label);
@@ -57,7 +61,7 @@ set<tStateID> *TransitionContainer::getFrom(int to, int label) {
 }
 
 void TransitionContainer::addRule(tStateID from, tLabelID alpha, tStateID to) {
-    if ((alpha == -1) && (from == to)) // epsilon selfloop
+    if ((alpha == epsilon) && (from == to)) // epsilon selfloop
         return;
 
     bool didIncrease = false;
@@ -71,30 +75,30 @@ void TransitionContainer::addRule(tStateID from, tLabelID alpha, tStateID to) {
 
 void TransitionContainer::addToFW(tStateID from, tLabelID alpha, tStateID to, bool didIncrease) {
 
-    // structure of forward: from -> (to -> label)
-    unordered_map<tStateID, set<tLabelID> *> *toLabelMap;
+    // structure of forward: from -> (label -> to)
+    unordered_map<tLabelID, set<tStateID> *> *labelToMap;
     auto posInFromSet = forward->find(from);
     if (posInFromSet != forward->end()) {
-        toLabelMap = posInFromSet->second;
+        labelToMap = posInFromSet->second;
     } else {
-        toLabelMap = new unordered_map<tStateID, set<tLabelID> *>;
-        forward->insert({from, toLabelMap});
+        labelToMap = new unordered_map<tLabelID, set<tStateID> *>;
+        forward->insert({from, labelToMap});
     }
 
-    set<tLabelID> *labelSet;
-    auto posInTLMap = toLabelMap->find(to);
-    if (posInTLMap != toLabelMap->end()) {
-        labelSet = posInTLMap->second;
+    set<tStateID> *toSet;
+    auto posInLTMap = labelToMap->find(alpha);
+    if (posInLTMap != labelToMap->end()) {
+        toSet = posInLTMap->second;
     } else {
-        labelSet = new set<tLabelID>;
-        toLabelMap->insert({to, labelSet});
+        toSet = new set<tStateID>;
+        labelToMap->insert({alpha, toSet});
     }
 
-    if (labelSet->find(alpha) == labelSet->end()) {
+    if (toSet->find(to) == toSet->end()) {
         if (!didIncrease) { // may have been increase in the update of "backward"
             numTransitions++;
         }
-        labelSet->insert(alpha);
+        toSet->insert(to);
     }
 }
 
@@ -126,8 +130,8 @@ void TransitionContainer::addToBW(tStateID from, tLabelID alpha, tStateID to, bo
     }
 }
 
-void *TransitionContainer::updateFAData(int *indexMapping) {
-    transitionBW *bwTransformed = new transitionBW;
+void *TransitionContainer::indexTransformation(int *indexMapping) {
+    transitionBW *bwTransformed = new transitionBW; // label -> (to -> from)
     tStateID from, to;
     tLabelID alpha;
     fullIterInit();
@@ -160,31 +164,34 @@ void *TransitionContainer::updateFAData(int *indexMapping) {
         }
     }
     freeBW();
+    freeFW();
     backward = bwTransformed;
     this->numTransitions = newTransitions;
-    copyBWtoFW();
+
+    bwValid = true;
+    fwValid = false;
 }
 
 void TransitionContainer::outIterInit(tStateID from) {
     // from -> (to -> label)
-    assert(this->fwValid);
+    ensureFW();
     auto fromState = forward->find(from);
     if (fromState == forward->end()) {
         iterBlocked = true;
         return;
     } else {
         iterBlocked = false;
-        iterToState = fromState->second->begin();
-        iterToStateEnd = fromState->second->end();
+        iterLabel = fromState->second->begin();
+        iterLabelEnd = fromState->second->end();
 
-        iterLabel = iterToState->second->begin();
-        iterLabelEnd = iterToState->second->end();
+        iterToState = iterLabel->second->begin();
+        iterToStateEnd = iterLabel->second->end();
 
-        while (iterLabel == iterLabelEnd) {
-            ++iterToState;
-            if (iterToState != iterToStateEnd) {
-                iterLabel = iterToState->second->begin();
-                iterLabelEnd = iterToState->second->end();
+        while (iterToState == iterToStateEnd) {
+            ++iterLabel;
+            if (iterLabel != iterLabelEnd) {
+                iterToState = iterLabel->second->begin();
+                iterToStateEnd = iterLabel->second->end();
             } else {
                 iterBlocked = true;
                 break;
@@ -197,15 +204,15 @@ bool TransitionContainer::outIterNext(tLabelID *alpha, tStateID *to) {
     if (iterBlocked) {
         return false;
     } else {
-        auto elem = *iterToState;
-        *to = elem.first;
-        *alpha = *iterLabel;
-        ++iterLabel;
-        while (iterLabel == iterLabelEnd) {
-            ++iterToState;
-            if (iterToState != iterToStateEnd) {
-                iterLabel = iterToState->second->begin();
-                iterLabelEnd = iterToState->second->end();
+        auto elem = *iterLabel;
+        *alpha = elem.first;
+        *to = *iterToState;
+        ++iterToState;
+        while (iterToState == iterToStateEnd) {
+            ++iterLabel;
+            if (iterLabel != iterLabelEnd) {
+                iterToState = iterLabel->second->begin();
+                iterToStateEnd = iterLabel->second->end();
             } else {
                 iterBlocked = true;
                 break;
@@ -220,15 +227,18 @@ bool iterBlocked2 = true;
 transitionFW::iterator iterFrom;
 transitionFW::iterator iterFromEnd;
 
-innerFW::iterator iterToState2;
-innerFW::iterator iterToStateEnd2;
+innerFW::iterator iterLabel2;
+innerFW::iterator iterLabelEnd2;
 
-set<tLabelID>::iterator iterLabel2;
-set<tLabelID>::iterator iterLabelEnd2;
+set<tStateID>::iterator iterTo2;
+set<tStateID>::iterator iterToEnd2;
 
 void TransitionContainer::fullIterInit() {
-    // from -> (to -> label)
-    assert(this->fwValid);
+//    if (bwValid) {
+//        cout << "implement full iter bw" << endl;
+//    }
+
+    ensureFW(); // from -> (label -> to)
     if (forward->empty()) {
         iterBlocked2 = true;
     } else {
@@ -236,40 +246,40 @@ void TransitionContainer::fullIterInit() {
         iterFrom = forward->begin();
         iterFromEnd = forward->end();
 
-        iterToState2 = iterFrom->second->begin();
-        iterToStateEnd2 = iterFrom->second->end();
+        iterLabel2 = iterFrom->second->begin();
+        iterLabelEnd2 = iterFrom->second->end();
 
-        iterLabel2 = iterToState2->second->begin();
-        iterLabelEnd2 = iterToState2->second->end();
+        iterTo2 = iterLabel2->second->begin();
+        iterToEnd2 = iterLabel2->second->end();
     }
 }
 
 bool TransitionContainer::fullIterNext(tStateID *from, tLabelID *label, tStateID *to) {
-    // from -> (to -> label)
+    // from -> (label -> to)
     if (iterBlocked2) {
         return false;
     } else {
         auto elem = *iterFrom;
         *from = elem.first;
-        *to = iterToState2->first;
-        *label = *iterLabel2;
-        ++iterLabel2;
+        *label = iterLabel2->first;
+        *to = *iterTo2;
+        ++iterTo2;
 
-        while (iterLabel2 == iterLabelEnd2) {
-            ++iterToState2;
-            if (iterToState2 != iterToStateEnd2) {
-                iterLabel2 = iterToState2->second->begin();
-                iterLabelEnd2 = iterToState2->second->end();
+        while (iterTo2 == iterToEnd2) {
+            ++iterLabel2;
+            if (iterLabel2 != iterLabelEnd2) {
+                iterTo2 = iterLabel2->second->begin();
+                iterToEnd2 = iterLabel2->second->end();
             } else {
                 iterFrom++;
                 if (iterFrom == iterFromEnd) {
                     iterBlocked2 = true;
                     break;
                 } else {
-                    iterToState2 = iterFrom->second->begin();
-                    iterToStateEnd2 = iterFrom->second->end();
-                    iterLabel2 = iterToState2->second->begin();
-                    iterLabelEnd2 = iterToState2->second->end();
+                    iterLabel2 = iterFrom->second->begin();
+                    iterLabelEnd2 = iterFrom->second->end();
+                    iterTo2 = iterLabel2->second->begin();
+                    iterToEnd2 = iterLabel2->second->end();
                 }
             }
         }
@@ -277,34 +287,88 @@ bool TransitionContainer::fullIterNext(tStateID *from, tLabelID *label, tStateID
     }
 }
 
-
-void TransitionContainer::copyBWtoFW() {
-    //transitionFW *forward; // from -> (to -> label)
-    //transitionBW *backward; // label -> (to -> from)
+void TransitionContainer::moveBWtoFW() {
     freeFW();
+    numTransitions = 0;
     forward = new transitionFW;
     for (auto l : *backward) {
         for (auto to : *l.second) {
             for (auto from : *to.second) {
-                addToFW(from, l.first, to.first, true);
+                addToFW(from, l.first, to.first, false);
             }
+            delete to.second;
+        }
+        delete l.second;
+    }
+    delete backward;
+    backward = nullptr;
+    bwValid = false;
+    fwValid = true;
+}
+
+void TransitionContainer::moveFWtoBW() {
+    // forward: from -> (label -> to)
+    // backward: label -> (to -> from)
+    freeBW();
+    numTransitions = 0;
+    backward = new transitionBW;
+    for (auto from : *forward) {
+        for (auto lToMap : *from.second) {
+            for (auto to : *lToMap.second) {
+                bool dontcare;
+                addToBW(from.first, lToMap.first, to,  dontcare);
+                //cout << "from: " << from.first << " by: " << lToMap.first << " to: " << to << endl;
+            }
+            delete lToMap.second;
+        }
+        delete from.second;
+    }
+    delete forward;
+    forward = nullptr;
+    bwValid = true;
+    fwValid = false;
+}
+
+void TransitionContainer::ensureBW() {
+    if (!bwValid) {
+        moveFWtoBW();
+    }
+}
+
+void TransitionContainer::ensureFW() {
+    if (!fwValid) {
+        moveBWtoFW();
+    }
+}
+
+bool iterBlocked3 = true;
+set<tStateID>::iterator iterTo3;
+set<tStateID>::iterator iterToEnd3;
+
+void TransitionContainer::outIterInit(tStateID from, tLabelID label) {
+    // from -> (label -> to)
+    iterBlocked3 = true;
+    ensureFW();
+    auto fromPos = forward->find(from);
+    if (fromPos != forward->end()) {
+        auto ltMapPos = fromPos->second->find(label);
+        if (ltMapPos != fromPos->second->end()) {
+            iterTo3 = ltMapPos->second->begin();
+            iterToEnd3 = ltMapPos->second->end();
+            iterBlocked3 = false;
         }
     }
 }
 
-void TransitionContainer::copyFWtoBW() {
-    //transitionFW *forward; // from -> (to -> label)
-    //transitionBW *backward; // label -> (to -> from)
-    int numTransitions = this->numTransitions;
-    freeBW();
-    backward = new transitionBW;
-    for (auto from : *forward) {
-        for (auto to : *from.second) {
-            for (auto label : *to.second) {
-                bool dontcare;
-                addToBW(from.first, label, to.first, dontcare);
-            }
+bool TransitionContainer::outIterNext(tStateID *to) {
+    if (iterBlocked3) {
+        return false;
+    } else {
+        *to = *iterTo3;
+        ++iterTo3;
+        if (iterTo3 == iterToEnd3) {
+            iterBlocked3 = true;
         }
+        return true;
     }
-    this->numTransitions = numTransitions;
 }
