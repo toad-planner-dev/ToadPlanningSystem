@@ -21,7 +21,7 @@ class FA {
     int *s2p;
     vector<int> firstI;
     vector<int> lastI;
-    vector<int> X;
+    set<int> X;
     vector<int> inRest;
 
 
@@ -77,7 +77,7 @@ public:
 
     bool isSorted(int y);
 
-    bool XisSorted();
+    void writeDfadHeuristic(string &file);
 };
 
 

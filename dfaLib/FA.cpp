@@ -4,7 +4,7 @@
 
 #include "FA.h"
 #include "NFAtoDFA/psState.h"
-
+#include "../utils/IntPairHeap.h"
 #include <list>
 #include <set>
 #include <map>
@@ -15,6 +15,7 @@
 #include <cassert>
 
 using namespace std;
+using namespace progression;
 
 FA::FA() {
     this->delta = new TransitionContainer;
@@ -74,13 +75,13 @@ void FA::minimize() {
     firstI.push_back(numStates - sGoal.size());
     lastI.push_back(numStates - 1);
 
-    list<int> W;
-    W.push_back(0); // this is a partition id
-    W.push_back(1);
+    set<int> W;
+    W.insert(0); // this is a partition id
+    W.insert(1);
 
     while (!W.empty()) {
-        int A = W.front();
-        W.pop_front();
+        int A = *W.begin();
+        W.erase(W.begin());
 
         // original A will be split, but its start and end index is stable
         int AStart = firstI[A];
@@ -104,7 +105,6 @@ void FA::minimize() {
             cout << endl << endl;
 #endif
 
-            int oldSize = numP;
             for (int Y = 0; Y < numP; Y++) {
                 if (XYintersectNotEq(Y)) {
                     int newP = numP++;
@@ -135,12 +135,12 @@ void FA::minimize() {
 #endif
 
                     // add new sets to W
-                    if (find(W.begin(), W.end(), Y) != W.end()) {
-                        W.push_back(newP);
+                    if (W.find(Y) != W.end()) {
+                        W.insert(newP);
                     } else if ((lastI[Y] - firstI[Y]) <= (lastI[newP] - firstI[newP])) {
-                        W.push_back(Y);
+                        W.insert(Y);
                     } else {
-                        W.push_back(newP);
+                        W.insert(newP);
                     }
                 }
             }
@@ -154,18 +154,6 @@ void FA::minimize() {
 #endif
 
     sortByIndex(0, numStates - 1);
-
-    //this->printRules();
-
-    /*
-    map<int, int> consec;
-    int k = 0;
-    for (int i = 0; i < numStates; i++) {
-        if (consec.find(s2p[i]) == consec.end()) {
-            consec.insert({s2p[i], k++});
-        }
-        s2p[i] = consec[s2p[i]];
-    }*/
 
     // update initial state
     vector<int> temp;
@@ -186,7 +174,6 @@ void FA::minimize() {
     this->numStates = numP; // update max state id
 
     delta->indexTransformation(s2p); // update transitions
-    //this->numStates = consec.size();
 
     // clean up
     delete[] partitions;
@@ -205,35 +192,20 @@ void FA::reachesAbyCtoX(int AStart, int AEnd, int c) {
         set<tStateID> *from = delta->getFrom(elem, c);
         if (from != nullptr) {
             for (int s : *from) {
-                X.push_back(s);
+                X.insert(s);
             }
         }
     }
-
-//    cout << "reachesAbyCtoX:" << endl;
-//    for(int i = 0; i < X.size(); i++) {
-//        cout << X[i] << " ";
-//    }
-//    cout << endl<< endl;
-    sort(X.begin(), X.end());
-    X.erase(unique(X.begin(), X.end()), X.end());
-
-//    for(int i = 0; i < X.size(); i++) {
-//        cout << X[i] << " ";
-//    }
-//    cout << endl<< endl;
 }
 
 bool FA::XYintersectNotEq(int Y) {
     bool interNonEmpty = false;
     inRest.clear();
     int iY = firstI[Y];
-    int iX = 0;
     assert(isSorted(Y));
-    assert(XisSorted());
+    auto iX = X.begin();
     while (true) {
-        //cout << "X.size() = " << X.size() << endl;
-        int x = X[iX];
+        int x = *iX;
         int y = partitions[iY];
         if (x == y) {
             interNonEmpty = true;
@@ -245,7 +217,7 @@ bool FA::XYintersectNotEq(int Y) {
         } else { // (y > x)
             iX++;
         }
-        if (iX >= X.size()) {
+        if (iX == X.end()) {
             while (iY <= lastI[Y]) {
                 inRest.push_back(iY++);
             }
@@ -620,15 +592,45 @@ bool FA::isSorted(int y) {
     return true;
 }
 
-bool FA::XisSorted() {
-    for(int i = 0; i < X.size()-1; i++) {
-        if (X[i] > X[i + 1]) {
-            for(int i : X) {
-                cout << i << " ";
+void FA::writeDfadHeuristic(string &file) {
+    cout << "- init" << endl;
+    int* hVals = new int[numStates];
+    for(int i = 0; i < numStates; i++) {
+        hVals[i] = INT_MAX;
+    }
+
+    IntPairHeap heap(1000);
+    for(int g : sGoal) {
+        heap.add(0, g); // final state with 0
+    }
+
+    cout << "- starting" << endl;
+    while (!heap.isEmpty()) {
+        int costs = heap.topKey();
+        int state = heap.topVal();
+        heap.pop();
+        if (hVals[state] <= costs) {
+            continue;
+        }
+        hVals[state] = costs;
+
+        for (int c = 0; c < numSymbols; c++) {
+            auto fromSet = delta->getFrom(state, c);
+            if (fromSet == nullptr)
+                continue;
+            int aCosts = 1; // might be switched to action costs
+            for (int from : *fromSet) {
+                heap.add(costs + aCosts, from);
             }
-            cout << endl;
-            return false;
         }
     }
-    return true;
+
+    cout << "- done" << endl;
+    ofstream os;
+    os.open(file);
+    os << numStates << "\n";
+    for (int i = 0; i < numStates; i++) {
+        os << hVals[i] << "\n";
+    }
+    os.close();
 }
