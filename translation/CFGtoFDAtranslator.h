@@ -29,6 +29,11 @@ struct grRule {
 
 
 class CFGtoFDAtranslator {
+    int reuses = 0;
+    int totalSubFAs = 0;
+    map<int, FA*> subDFAs;
+
+
     int isTerminalSym(int a);
 
     vector<int> *copySubSeq(grRule *in, int from, int to);
@@ -50,7 +55,7 @@ public:
     const int recCycle = 4;
 
     // const for epsilon symbol
-    const int Epsilon = -1;
+    const int Epsilon = 65535;
 
     // grammar definition
     int numSymbols = 0;

@@ -224,7 +224,7 @@ int main(int argc, char *argv[]) {
     gettimeofday(&tp, NULL);
     long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
-    fa->showDOT();
+    //fa->showDOT();
     //fa->showDOT(htn->taskNames);
     //exit(0);
     string dFile2 = "domain.pddl";
