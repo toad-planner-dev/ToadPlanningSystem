@@ -217,8 +217,14 @@ int main(int argc, char *argv[]) {
     //to2s->printRules();
 
     //to2s->printRules();
+    gettimeofday(&tp, NULL);
+    long startB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "Building DFA" << endl;
     FA* fa = to2s->makeFABU(htn, htn->initialTask);
-    //fa->showDOT();
+    gettimeofday(&tp, NULL);
+    long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
+    fa->showDOT();
     //fa->showDOT(htn->taskNames);
     //exit(0);
     string dFile2 = "domain.pddl";
