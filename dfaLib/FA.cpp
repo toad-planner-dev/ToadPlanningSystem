@@ -535,7 +535,11 @@ void FA::showDOT(string *pString) {
     tStateID from, to;
     tLabelID label;
     while (delta->fullIterNext(&from, &label, &to)) {
-        myfile << "   n" << from << " -> n" << to << " [label=\"" << pString[label] << "\"]" << endl;
+        if (label == epsilon) {
+            myfile << "   n" << from << " -> n" << to << " [label=epsilon]" << endl;
+        } else {
+            myfile << "   n" << from << " -> n" << to << " [label=\"" << pString[label] << "\"]" << endl;
+        }
     }
 
     myfile << endl << "}" << endl;
