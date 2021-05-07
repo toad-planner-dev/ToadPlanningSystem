@@ -130,8 +130,8 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     tStateID from, to;
     tLabelID a;
     while (fa->delta->fullIterNext(&from, &a, &to)) {
-        assert(a < m->numActions);
-        if (a == -1) {
+        assert((a < m->numActions) || (a == epsilon));
+        if (a == epsilon) {
             assert (from != to);
             check++; // count actions actually written
             os << "begin_operator\n";
