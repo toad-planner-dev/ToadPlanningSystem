@@ -13,6 +13,7 @@
 #include <iostream>
 #include <fstream>
 #include <cassert>
+#include <sys/time.h>
 
 using namespace std;
 using namespace progression;
@@ -399,6 +400,8 @@ void FA::compileToDFA() {
             tStateID sTo;
             tLabelID alpha;
             while (delta->outIterNext(&alpha, &sTo)) {
+                if (alpha == epsilon)
+                    continue;
                 if (arcsOut.find(alpha) == arcsOut.end()) {
                     arcsOut.insert({alpha, new set<tStateID>});
                 }
@@ -593,44 +596,65 @@ bool FA::isSorted(int y) {
 }
 
 void FA::writeDfadHeuristic(string &file) {
-    cout << "- init" << endl;
     int* hVals = new int[numStates];
     for(int i = 0; i < numStates; i++) {
-        hVals[i] = INT_MAX;
+        hVals[i] = -1; // todo: unreachable parts should be make expensive
     }
 
     IntPairHeap heap(1000);
     for(int g : sGoal) {
         heap.add(0, g); // final state with 0
+        hVals[g] = 0;
     }
 
-    cout << "- starting" << endl;
+    timeval tp;
+    gettimeofday(&tp, NULL);
+    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
+    unordered_map<tStateID, unordered_set<tStateID> *>* bw = new unordered_map<tStateID, unordered_set<tStateID> *>;
+    delta->fullIterInit();
+    tStateID from, to;
+    tLabelID l;
+    while (delta->fullIterNext(&from, &l, &to)) {
+        unordered_set<tStateID> * fromSet;
+        auto elem = bw->find(to);
+        if (elem == bw->end()) {
+            fromSet = new unordered_set<tStateID>;
+            bw->insert({to, fromSet});
+        } else {
+            fromSet = elem->second;
+        }
+        fromSet->insert(from);
+    }
+
     while (!heap.isEmpty()) {
         int costs = heap.topKey();
         int state = heap.topVal();
         heap.pop();
-        if (hVals[state] <= costs) {
-            continue;
-        }
-        hVals[state] = costs;
 
-        for (int c = 0; c < numSymbols; c++) {
-            auto fromSet = delta->getFrom(state, c);
-            if (fromSet == nullptr)
-                continue;
-            int aCosts = 1; // might be switched to action costs
+        auto elem = bw->find(state);
+        if (elem != bw->end()) {
+            auto fromSet = elem->second;
             for (int from : *fromSet) {
-                heap.add(costs + aCosts, from);
+                if (hVals[from] < 0) {
+                    hVals[from] = costs + 1;
+                    heap.add(costs + 1, from);
+                }
             }
         }
     }
+    gettimeofday(&tp, NULL);
+    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << " [timePrepareHdfad=" << (endT - startT) << "]" << endl;
 
-    cout << "- done" << endl;
     ofstream os;
     os.open(file);
     os << numStates << "\n";
     for (int i = 0; i < numStates; i++) {
-        os << hVals[i] << "\n";
+        if(hVals[i] >= 0)
+            os << hVals[i] << "\n";
+        else
+            os << 100000 << "\n";
     }
     os.close();
 }
