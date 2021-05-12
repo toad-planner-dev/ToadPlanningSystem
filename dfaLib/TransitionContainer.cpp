@@ -222,17 +222,6 @@ bool TransitionContainer::outIterNext(tLabelID *alpha, tStateID *to) {
     }
 }
 
-bool iterBlocked2 = true;
-
-transitionFW::iterator iterFrom;
-transitionFW::iterator iterFromEnd;
-
-innerFW::iterator iterLabel2;
-innerFW::iterator iterLabelEnd2;
-
-set<tStateID>::iterator iterTo2;
-set<tStateID>::iterator iterToEnd2;
-
 void TransitionContainer::fullIterInit() {
 //    if (bwValid) {
 //        cout << "implement full iter bw" << endl;

@@ -14,7 +14,7 @@ using namespace std;
 
 // typedef
 typedef unsigned int tStateID;
-typedef unsigned short tLabelID;
+typedef unsigned int tLabelID;
 typedef unordered_map<tLabelID, set<tStateID> *> innerFW;
 typedef unordered_map<tStateID, set<tStateID> *> innerBW;
 typedef unordered_map<tStateID, innerFW *> transitionFW;
@@ -43,6 +43,20 @@ class TransitionContainer {
 
     set<tStateID>::iterator iterToState;
     set<tStateID>::iterator iterToStateEnd;
+
+
+
+    bool iterBlocked2 = true;
+
+    transitionFW::iterator iterFrom;
+    transitionFW::iterator iterFromEnd;
+
+    innerFW::iterator iterLabel2;
+    innerFW::iterator iterLabelEnd2;
+
+    set<tStateID>::iterator iterTo2;
+    set<tStateID>::iterator iterToEnd2;
+
 
 public:
     int numTransitions = 0;
