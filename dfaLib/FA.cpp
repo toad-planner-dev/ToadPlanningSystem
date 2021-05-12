@@ -367,15 +367,14 @@ void FA::compileToDFA() {
     getEpsilonClosure(tempS0);
     psState *s0 = new psState(tempS0);
     s0->id = 0;
-    delete tempS0;
-
     set<tStateID> tempGoal;
-    for (int i : sInit) {
+    for (int i : *tempS0) {
         if (sGoal.find(i) != sGoal.end()) {
             tempGoal.insert(s0->id);
             break;
         }
     }
+    delete tempS0;
     states.insert(s0);
 
     list<psState *> queue;
@@ -661,4 +660,17 @@ void FA::writeDfadHeuristic(string &file) {
             os << 100000 << "\n";
     }
     os.close();
+}
+
+void FA::singleGoal() {
+    assert(!sGoal.empty());
+    if (sGoal.size() > 1) {
+        tStateID newGoal = numStates++;
+        for (tStateID g : sGoal) {
+            addRule(g, epsilon, newGoal);
+        }
+        sGoal.clear();
+        sGoal.insert(newGoal);
+    }
+    assert(!sGoal.empty());
 }

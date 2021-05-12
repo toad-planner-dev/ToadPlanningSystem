@@ -78,6 +78,8 @@ public:
     bool isSorted(int y);
 
     void writeDfadHeuristic(string &file);
+
+    void singleGoal();
 };
 
 
