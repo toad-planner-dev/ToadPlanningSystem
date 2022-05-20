@@ -8,6 +8,7 @@
 #include <vector>
 #include <set>
 #include <unordered_map>
+#include <string>
 #include "TransitionContainer.h"
 
 using namespace std;
@@ -46,6 +47,8 @@ class FA {
 
 public:
     TransitionContainer* delta;
+    int fileLabel = -1;
+    int prim = -1;
 
     FA();
     ~FA();

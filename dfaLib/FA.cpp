@@ -329,31 +329,47 @@ void FA::printDOT() {
     cout << endl << "}" << endl;
 }
 
+int i = 0;
 void FA::showDOT() {
-    system("rm fa.dot");
+    //system("rm fa.dot");
 //    system("rm fa.dot.pdf");
 
     ofstream myfile;
-    myfile.open ("fa.dot");
+    string s;
+    if (fileLabel == -1){
+        s = "fa" + to_string(i) + ".dot";
+    } else {
+        s = "fa" + to_string(fileLabel) + ".dot";
+    }
+    //myfile.open ("fa.dot");
+    myfile.open (s);
 
     myfile << endl << "digraph D {" << endl << endl;
     for (int i : sInit) {
         myfile << "   n" << i << " [shape=diamond]" << endl;
     }
     for (int g : sGoal) {
-        myfile << "   n" << g << " [shape=box]" << endl;
+        myfile << "   n" << g << " [style=filled, fillcolor=gray]" << endl;
     }
 
     delta->fullIterInit();
     tStateID from, to;
     tLabelID label;
     while (delta->fullIterNext(&from, &label, &to)) {
-        myfile << "   n" << from << " -> n" << to << " [label=c" << label << "c]" << endl;
+        if(label == epsilon) {
+            myfile << "   n" << from << " -> n" << to << " [label=eps]" << endl;
+        } else if (label < prim) {
+            myfile << "   n" << from << " -> n" << to << " [label=ac" << label << "]" << endl;
+        } else {
+            myfile << "   n" << from << " -> n" << to << " [label=abs" << label << "]" << endl;
+        }
     }
 
     myfile << endl << "}" << endl;
     myfile.close();
-    system("xdot fa.dot &");
+    //string blub = "xdot fa" + to_string(i) + ".dot &";
+    //system(blub.c_str());
+    i++;
 //    system("dot -Tpdf -O fa.dot");
 //    system("okular fa.dot.pdf &");
 }
@@ -486,32 +502,27 @@ void FA::printRules() {
 }
 
 void FA::addSubFA(tStateID from, FA *pFa, tStateID to) {
-    assert(pFa->sInit.size() == 1);
-    assert(pFa->sGoal.size() == 1);
-    tStateID s0 = *pFa->sInit.begin();
-    tStateID g = *pFa->sGoal.begin();
-    map<tStateID, tStateID> iMapping;
-    iMapping.insert({s0, from});
-    iMapping.insert({g, to});
-
+    map<tStateID, tStateID> subToGlobal;
     pFa->delta->fullIterInit();
-    tStateID from2, to2;
-    tLabelID l;
-    while (pFa->delta->fullIterNext(&from2, &l, &to2)) {
-        if (iMapping.find(from2) == iMapping.end()) {
-            iMapping.insert({from2, this->numStates++});
+    tStateID subF, subT;
+    tLabelID subL;
+    while (pFa->delta->fullIterNext(&subF, &subL, &subT)) {
+        if (subToGlobal.find(subF) == subToGlobal.end()) {
+            subToGlobal.insert({subF, this->numStates++});
         }
-        if (iMapping.find(to2) == iMapping.end()) {
-            iMapping.insert({to2, this->numStates++});
+        if (subToGlobal.find(subT) == subToGlobal.end()) {
+            subToGlobal.insert({subT, this->numStates++});
         }
-        this->addRule(iMapping[from2], l, iMapping[to2]);
+        this->addRule(subToGlobal[subF], subL, subToGlobal[subT]);
     }
-//    if(!this->numStatesCorrect()) {
-//        pFa->showDOT();
-//        this->showDOT();
-//    }
-//    assert(this->numStatesCorrect());
-    //cout << pFa->sGoal.size() << endl;
+
+    for (tStateID s0 : pFa->sInit) {
+        this->addRule(from, epsilon, subToGlobal[s0]);
+    }
+
+    for (tStateID g : pFa->sGoal) {
+        this->addRule(subToGlobal[g], epsilon, to);
+    }
 }
 
 void FA::showDOT(string *pString) {
@@ -519,7 +530,7 @@ void FA::showDOT(string *pString) {
     //system("rm fa.dot.pdf");
 
     ofstream myfile;
-    myfile.open ("fa.dot");
+    myfile.open("fa.dot");
 
     myfile << endl << "digraph D {" << endl << endl;
 

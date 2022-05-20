@@ -31,8 +31,10 @@ struct grRule {
 class CFGtoFDAtranslator {
     int reuses = 0;
     int totalSubFAs = 0;
-    map<int, FA*> subDFAs;
+    int numNonTerminals;
+    map<tLabelID, FA*> subDFAs;
 
+    unordered_map<int, int> subFANeededBy;
 
     int isTerminalSym(int a);
 
@@ -95,7 +97,7 @@ public:
 
     int divide(int l, int r);
 
-    void initDataStructures();
+    void initDataStructures(int startingSymbol);
 
     void calcSCCs(int i);
 
@@ -120,7 +122,17 @@ public:
 
     FA *getFaLeftRec(tLabelID  A);
 
+    void *countFA(tLabelID alpha);
+
+    void *countFaNonRec(tLabelID  A);
+
+    void * countFaRightRec(tLabelID  A);
+
+    void *countFaLeftRec(tLabelID  A);
+
     void statePruning(Model *htn, FA *pFa);
+
+    void cleanupSubFAs(int label);
 };
 
 
