@@ -133,6 +133,8 @@ public:
     void statePruning(Model *htn, FA *pFa);
 
     void cleanupSubFAs(int label);
+
+    int nextNew();
 };
 
 

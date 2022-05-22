@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.17)
 project(TOAD)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 add_executable(toad main.cpp
         htnModel/Model.cpp htnModel/ProgressionNetwork.cpp
@@ -25,3 +25,5 @@ add_executable(toad main.cpp
         dfaLib/NFAtoDFA/psState.cpp dfaLib/NFAtoDFA/psState.h
         dfaLib/TransitionContainer.cpp dfaLib/TransitionContainer.h
         SASWriter.cpp SASWriter.h)
+
+target_link_libraries (toad /home/dh/programme/OpenFST/openfst-1.8.2/src/lib/.libs/libfst.so)

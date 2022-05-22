@@ -751,14 +751,52 @@ FA * CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 
     this->numNonTerminals = htn->numTasks - htn->numActions;
 
-    FA* fa = getFA(tinit);
+    vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
+    for (int i = this->numTerminals; i < this->numSymbols; i++) {
+//        cout << "==================== " << i << "==================== " << endl;
+        FA* fa = getFA(i);
+//        cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
+//        StdVectorFst* fst2 = new StdVectorFst();
+//        cout << "determinize" << endl;
+//        Determinize(*fa->fst, fst2);
+//        fa->fst = fst2;
+//        cout << "minimize" << endl;
+//        Minimize(fa->fst);
+//        cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
+        label_fst_pairs.emplace_back(i + 1, fa->fst);
+        //fa->showDOT(htn->taskNames);
+    }
+    FA* fa= new FA();
+    cout << "Combining elementary automata..." << endl;
+    Replace(label_fst_pairs, fa->fst, htn->initialTask + 1, true);
+    //fa->showDOT();
+//    int nst = ;
+//    int nar = fa->fst->NumArcs();
+    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
+    StdVectorFst* fst2 = new StdVectorFst();
+    cout << "determinize" << endl;
+    Determinize(*fa->fst, fst2);
+    fa->fst = fst2;
+    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
+    cout << "minimize" << endl;
+    Minimize(fa->fst);
+    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
+//    StdVectorFst* fst3 = new StdVectorFst();
+//    cout << "playing dirty tricks" << endl;
+//    ShortestPath(*fa->fst, fst3, 10);
+//    fa->fst = fst3;
+    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
+    fa->numSymbols = numSymbols;
+    //fa->showDOT(htn->taskNames);
+
+    //FA* fa = getFA(tinit);
     //assert(subDFAs.size() == 1);
-    cout << "- build " << totalSubFAs << " sub-automata, " << reuses << " reuses." << endl;
+    //cout << "- build " << totalSubFAs << " sub-automata, " << reuses << " reuses." << endl;
     //cout << fa->sGoal.size() << " " << fa->sInit.size() << endl;
 //    cout << "  - determinization reduced transitions from " << fa->delta->numTransitions << " to ";
 //    fa->compileToDFA();
 //    cout << fa->delta->numTransitions << endl;
-    fa->showDOT(htn->taskNames);
+    //fa->showDOT(htn->taskNames);
 //    fa->showDOT();
 //    cout << "  - State-based pruning reduced transitions from " << fa->delta->numTransitions << " to ";
 //    statePruning(htn, fa);
@@ -774,13 +812,14 @@ FA * CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 
 //    fa->singleGoal();
 //    fa->writeDfadHeuristic(fName);
-    fa->showDOT();
+//    fa->showDOT();
     //fa->showDOT(htn->taskNames);
     //assert(fa->numStatesCorrect());
     return fa;
 }
 
 FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
+    //cout << "processing alpha " << alpha << endl;
     totalSubFAs++;
     FA *fa = new FA;
     if (subDFAs.find(alpha) != subDFAs.end()) {
@@ -806,10 +845,10 @@ FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
         } else {
             fa = getFaRightRec(alpha);
         }
-        fa->fileLabel = alpha;
-        fa->prim = this->numTerminals;
-        fa->showDOT();
-        fa->fileLabel = -1;
+//        fa->fileLabel = alpha;
+//        fa->prim = this->numTerminals;
+//        fa->showDOT();
+//        fa->fileLabel = -1;
 
 
 //        cout << alpha << endl;
@@ -828,7 +867,7 @@ FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
 //        if(alpha == 51) {
 //            fa->showDOT();
 //        }
-        subDFAs.insert({alpha, fa});
+//        subDFAs.insert({alpha, fa});
 //        if (subDFAs.find(51) != subDFAs.end()) {
 //            subDFAs[51]->showDOT();
 //        }
@@ -841,13 +880,15 @@ FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
 bool noSubstitution = true;
 FA *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
     FA* fa = new FA();
-    int s0 = 0;
-    int sF = 1;
-    fa->sInit.insert(s0);
-    fa->sGoal.insert(sF);
+    int s0 = fa->nextState();
+    fa->makeInit(s0);
+    int sF = fa->nextState();
+    fa->makeFinal(sF);
+//    fa->sInit.insert(s0);
+//    fa->sGoal.insert(sF);
     fa->numSymbols = numSymbols;
 
-    fa->numStates = 2;
+    //fa->numStates = 2;
     for (int j = rFirst[A]; j <= rLast[A]; j++) {
 //        if(A == 51){
 //            printRule(rules[j]);
@@ -866,7 +907,8 @@ FA *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
         for (int k = 0; k < rules[j]->rLength; k++) {
             int label = rules[j]->right[k];
             if (k < rules[j]->rLength - 1) {
-                int newState = fa->numStates++;
+                int newState = fa->nextState();
+
                 if (this->isTerminalSym(label) || noSubstitution) {
                     fa->addRule(lastState, label, newState);
                 } else {
@@ -892,11 +934,11 @@ FA *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
             }
         }
     }
-    if (!fa->numStatesCorrect()) {
-        fa->showDOT();
-        fa->numStatesCorrect();
-    }
-    assert(fa->numStatesCorrect());
+//    if (!fa->numStatesCorrect()) {
+//        fa->showDOT();
+//        fa->numStatesCorrect();
+//    }
+//    assert(fa->numStatesCorrect());
     return fa;
 }
 
@@ -904,17 +946,19 @@ FA *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
     int Nj = SymToNi[A];
     FA *fa = new FA();
 
-    int s0 = 0;
-    fa->sInit.insert(s0);
+    int s0 = fa->nextState();
+    fa->makeInit(s0);
+    int sF = fa->nextState();
+    fa->makeFinal(sF);
     fa->numSymbols = numSymbols;
-    fa->numStates = 2;
+
 
     map<int, int> symToState;
-    symToState.insert({A, 1});
+    symToState.insert({A, sF});
     for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
         int C = Ni[Nj][i];
         if (C != A) {
-            symToState.insert({C, fa->numStates++});
+            symToState.insert({C, fa->nextState()});
         }
     }
     fa->sGoal.insert(symToState[A]);
@@ -949,11 +993,11 @@ FA *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
                 int label = rule->right[k];
                 int target;
                 if (k < rule->rLength - 1) {
-                    target = fa->numStates++;
+                    target = fa->nextState();
                 } else {
                     target = symToState[C];
                 }
-                if (this->isTerminalSym(label)) {
+                if (this->isTerminalSym(label) || noSubstitution) {
                     fa->addRule(lastState, label, target);
                 } else {
                     FA *subFA = getFA(label);
@@ -964,12 +1008,12 @@ FA *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
             }
         }
     }
-    if (!fa->numStatesCorrect()) {
-        fa->showDOT();
-        fa->numStatesCorrect();
-    }
-//    fa->showDOT();
-    assert(fa->numStatesCorrect());
+//    if (!fa->numStatesCorrect()) {
+//        fa->showDOT();
+//        fa->numStatesCorrect();
+//    }
+////    fa->showDOT();
+//    assert(fa->numStatesCorrect());
     return fa;
 }
 
@@ -979,27 +1023,26 @@ FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
     fa->numSymbols = numSymbols;
 
     map<int, int> symToState;
-    int sF = 1;
-    fa->sGoal.insert(sF);
-    symToState.insert({A, 0});
-    fa->numStates = 2;
+    int s0 = fa->nextState();
+    fa->makeInit(s0);
+    int sF = fa->nextState();
+    fa->makeFinal(sF);
+
+    symToState.insert({A, s0});
 
     for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
         int C = Ni[Nj][i];
         if (C != A) {
-            symToState.insert({C, fa->numStates++});
+            symToState.insert({C, fa->nextState()});
         }
     }
-
-    int s0 = symToState[A];
-    fa->sInit.insert(s0);
 
     for (int i = 0; i < NiSize[Nj]; i++) {
         int C = Ni[Nj][i];
         for (int l = rFirst[C]; l <= rLast[C]; l++) {
             // need to detect whether this is a recursive method or not
             grRule *rule = rules[l];
-            //printRule(rule);
+//            printRule(rule);
             assert(rule->left == C);
             assert(SymToNi[C] == Nj);
             int D = rule->right[rule->rLength - 1]; // last right-hand side
@@ -1021,9 +1064,8 @@ FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
             for (int k = 0; k < proceedTo; k++) {
                 int label = rule->right[k];
                 if (k < proceedTo - 1) {
-                    int newState = fa->numStates;
-                    fa->numStates++;
-                    if (this->isTerminalSym(label)) {
+                    int newState = fa->nextState();
+                    if (this->isTerminalSym(label) || noSubstitution) {
                         fa->addRule(lastState, label, newState);
                     } else {
                         FA* subFA = getFA(label);
@@ -1038,7 +1080,7 @@ FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
                     } else {
                         target = symToState[D];
                     }
-                    if (this->isTerminalSym(label)) {
+                    if (this->isTerminalSym(label) || noSubstitution) {
                         fa->addRule(lastState, label, target);
                     } else {
                         FA *subFA = getFA(label);
@@ -1049,12 +1091,12 @@ FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
             }
         }
     }
-    if (!fa->numStatesCorrect()) {
-        fa->showDOT();
-        fa->numStatesCorrect();
-    }
-    //fa->showDOT();
-    assert(fa->numStatesCorrect());
+//    if (!fa->numStatesCorrect()) {
+//        fa->showDOT();
+//        fa->numStatesCorrect();
+//    }
+//    fa->showDOT();
+//    assert(fa->numStatesCorrect());
 
     return fa;
 }
@@ -1140,140 +1182,140 @@ void *CFGtoFDAtranslator::countFaLeftRec(tLabelID A) {
 }
 
 void CFGtoFDAtranslator::statePruning(Model *htn, FA *pFa) {
-    pFa->delta->ensureBW(); // label -> (to -> from)
-    unordered_map<tStateID, set<int>*> pStates; // partial state that holds with certainty
-    for (auto l : *pFa->delta->backward) {
-        if(l.first == epsilon)
-            continue;
-        for (auto to : *l.second) {
-            if (pStates.find(to.first) == pStates.end()) {
-                set<int>* pState = new set<int>;
-                pStates.insert({to.first, pState});
-                int action = l.first;
-
-                // preconditions that are not changed
-                for (int i = 0; i < htn->numPrecs[action]; i++) {
-                    int prec = htn->precLists[action][i];
-                    pState->insert(prec);
-                }
-                // effects
-                for (int i = 0; i < htn->numDels[action]; i++) {
-                    int del = htn->delLists[action][i];
-                    pState->erase(del);
-                }
-                for (int i = 0; i < htn->numAdds[action]; i++) {
-                    int add = htn->addLists[action][i];
-                    pState->insert(add);
-                }
-            } else {
-                set<int>* pState = pStates.find(to.first)->second;
-                if (pState == nullptr) {
-                    continue;
-                }
-                // intersect old set with (unchanged precs \cup add effects)
-                set<int>* tempPState = new set<int>;
-                int action = l.first;
-
-                // preconditions that are not changed
-                for (int i = 0; i < htn->numPrecs[action]; i++) {
-                    int prec = htn->precLists[action][i];
-                    tempPState->insert(prec);
-                }
-                // effects
-                for (int i = 0; i < htn->numDels[action]; i++) {
-                    int del = htn->delLists[action][i];
-                    tempPState->erase(del);
-                }
-                for (int i = 0; i < htn->numAdds[action]; i++) {
-                    int add = htn->addLists[action][i];
-                    tempPState->insert(add);
-                }
-                for(auto iter = pState->begin(); iter != pState->end(); ) {
-                    int p = *iter;
-                    if (tempPState->find(p) == tempPState->end()) {
-                        iter = pState->erase(iter);
-                    } else {
-                        ++iter;
-                    }
-                }
-                delete tempPState;
-
-                if (pState->empty()) { // closed
-                    delete pState;
-                    pStates.at(to.first) = nullptr;
-                }
-            }
-        }
-    }
-//    cout << endl;
-//    for (auto pState : pStates) {
-//        if (pState.second == nullptr) {
+//    pFa->delta->ensureBW(); // label -> (to -> from)
+//    unordered_map<tStateID, set<int>*> pStates; // partial state that holds with certainty
+//    for (auto l : *pFa->delta->backward) {
+//        if(l.first == epsilon)
+//            continue;
+//        for (auto to : *l.second) {
+//            if (pStates.find(to.first) == pStates.end()) {
+//                set<int>* pState = new set<int>;
+//                pStates.insert({to.first, pState});
+//                int action = l.first;
+//
+//                // preconditions that are not changed
+//                for (int i = 0; i < htn->numPrecs[action]; i++) {
+//                    int prec = htn->precLists[action][i];
+//                    pState->insert(prec);
+//                }
+//                // effects
+//                for (int i = 0; i < htn->numDels[action]; i++) {
+//                    int del = htn->delLists[action][i];
+//                    pState->erase(del);
+//                }
+//                for (int i = 0; i < htn->numAdds[action]; i++) {
+//                    int add = htn->addLists[action][i];
+//                    pState->insert(add);
+//                }
+//            } else {
+//                set<int>* pState = pStates.find(to.first)->second;
+//                if (pState == nullptr) {
+//                    continue;
+//                }
+//                // intersect old set with (unchanged precs \cup add effects)
+//                set<int>* tempPState = new set<int>;
+//                int action = l.first;
+//
+//                // preconditions that are not changed
+//                for (int i = 0; i < htn->numPrecs[action]; i++) {
+//                    int prec = htn->precLists[action][i];
+//                    tempPState->insert(prec);
+//                }
+//                // effects
+//                for (int i = 0; i < htn->numDels[action]; i++) {
+//                    int del = htn->delLists[action][i];
+//                    tempPState->erase(del);
+//                }
+//                for (int i = 0; i < htn->numAdds[action]; i++) {
+//                    int add = htn->addLists[action][i];
+//                    tempPState->insert(add);
+//                }
+//                for(auto iter = pState->begin(); iter != pState->end(); ) {
+//                    int p = *iter;
+//                    if (tempPState->find(p) == tempPState->end()) {
+//                        iter = pState->erase(iter);
+//                    } else {
+//                        ++iter;
+//                    }
+//                }
+//                delete tempPState;
+//
+//                if (pState->empty()) { // closed
+//                    delete pState;
+//                    pStates.at(to.first) = nullptr;
+//                }
+//            }
+//        }
+//    }
+////    cout << endl;
+////    for (auto pState : pStates) {
+////        if (pState.second == nullptr) {
+////            continue;
+////        }
+////        cout << pState.first <<  ":";
+////        for(int p : *pState.second) {
+////            cout << " " << htn->factStrs[p];
+////        }
+////         cout << endl;
+////    }
+////    cout << endl;
+//
+//    pFa->delta->ensureFW(); // from -> (label -> to)
+//    for (auto iter2 = pFa->delta->forward->begin(); iter2 != pFa->delta->forward->end();) {
+//        auto from = *iter2;
+//        if (pFa->sInit.find(from.first) !=pFa->sInit.end()) {
+//            iter2++;
 //            continue;
 //        }
-//        cout << pState.first <<  ":";
-//        for(int p : *pState.second) {
-//            cout << " " << htn->factStrs[p];
+//        if ((pStates.find(from.first) == pStates.end()) || (pStates.find(from.first)->second == nullptr)) {
+//            iter2++;
+//            continue;
 //        }
-//         cout << endl;
+//
+//        set<int> pState = *pStates.find(from.first)->second;
+//
+//        bool totallyEmpty = false;
+//        for (auto iter = from.second->begin(); iter != from.second->end(); ) {
+//            auto actions = *iter;
+//            bool applicable = true;
+//            int action = actions.first;
+//            if(action == epsilon) {
+//                iter++;
+//                continue;
+//            }
+//            for (int i = 0; i < htn->numPrecs[action]; i++) {
+//                int p = htn->precLists[action][i];
+//                int var =  htn->bitToVar[p];
+//                for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
+//                    if ((j != p) && (pState.find(j) != pState.end())) {
+//                        applicable = false;
+//                        break;
+//                    }
+//                }
+//                if (!applicable) {
+//                    break;
+//                }
+//            }
+//            if (!applicable) {
+//                delete actions.second;
+//                iter = from.second->erase(iter);
+//                pFa->delta->numTransitions--;
+//                if (from.second->empty()) {
+//                    iter2 = pFa->delta->forward->erase(iter2);
+//                    totallyEmpty = true;
+//                    break;
+//                }
+//            } else {
+//                iter++;
+//            }
+//        }
+//        if (!totallyEmpty) {
+//            iter2++;
+//        }
 //    }
-//    cout << endl;
-
-    pFa->delta->ensureFW(); // from -> (label -> to)
-    for (auto iter2 = pFa->delta->forward->begin(); iter2 != pFa->delta->forward->end();) {
-        auto from = *iter2;
-        if (pFa->sInit.find(from.first) !=pFa->sInit.end()) {
-            iter2++;
-            continue;
-        }
-        if ((pStates.find(from.first) == pStates.end()) || (pStates.find(from.first)->second == nullptr)) {
-            iter2++;
-            continue;
-        }
-
-        set<int> pState = *pStates.find(from.first)->second;
-
-        bool totallyEmpty = false;
-        for (auto iter = from.second->begin(); iter != from.second->end(); ) {
-            auto actions = *iter;
-            bool applicable = true;
-            int action = actions.first;
-            if(action == epsilon) {
-                iter++;
-                continue;
-            }
-            for (int i = 0; i < htn->numPrecs[action]; i++) {
-                int p = htn->precLists[action][i];
-                int var =  htn->bitToVar[p];
-                for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
-                    if ((j != p) && (pState.find(j) != pState.end())) {
-                        applicable = false;
-                        break;
-                    }
-                }
-                if (!applicable) {
-                    break;
-                }
-            }
-            if (!applicable) {
-                delete actions.second;
-                iter = from.second->erase(iter);
-                pFa->delta->numTransitions--;
-                if (from.second->empty()) {
-                    iter2 = pFa->delta->forward->erase(iter2);
-                    totallyEmpty = true;
-                    break;
-                }
-            } else {
-                iter++;
-            }
-        }
-        if (!totallyEmpty) {
-            iter2++;
-        }
-    }
-    for (auto pState : pStates) {
-        delete pState.second;
-    }
+//    for (auto pState : pStates) {
+//        delete pState.second;
+//    }
 }
 
 #ifndef NDEBUG

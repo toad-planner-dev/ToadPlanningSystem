@@ -10,46 +10,15 @@
 #include <unordered_map>
 #include <string>
 #include "TransitionContainer.h"
+#include <fst/fstlib.h>
 
 using namespace std;
+using namespace fst;
 
 
 class FA {
-
-
-    // for minimization
-    int *partitions;
-    int *s2p;
-    vector<int> firstI;
-    vector<int> lastI;
-    set<int> X;
-    vector<int> inRest;
-
-
-    void sortByPartition(int i, int i1);
-
-    int partByPartition(int lo, int hi);
-
-    void reachesAbyCtoX(int AStart, int AEnd, int c);
-
-    bool XYintersectNotEq(int Y);
-
-    int compByPartition(int i, int pivot);
-    void qsSwap(int i, int j);
-
-    void sortByIndex(int lo, int hi);
-
-    int partByIndex(int lo, int hi);
-
-    int compByIndex(int i, int j);
-
-    void getEpsilonClosure(set<tStateID> *pSet);
-
 public:
-    TransitionContainer* delta;
-    int fileLabel = -1;
-    int prim = -1;
-
+    StdVectorFst* fst;
     FA();
     ~FA();
     int numStates = 0;
@@ -62,9 +31,16 @@ public:
 
     void compileToDFA();
 
-    void printDOT();
+    int nextState();
 
-    void printRules();
+    int getNumStates();
+
+//    void printDOT();
+
+//    void printRules();
+    void makeInit(int state);
+
+    void makeFinal(int state);
 
     void addRule(int from, int label, int to);
 
@@ -80,9 +56,9 @@ public:
 
     bool isSorted(int y);
 
-    void writeDfadHeuristic(string &file);
-
-    void singleGoal();
+//    void writeDfadHeuristic(string &file);
+//
+//    void singleGoal();
 };
 
 

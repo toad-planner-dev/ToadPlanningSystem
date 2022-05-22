@@ -28,32 +28,32 @@ int main(int argc, char *argv[]) {
 
     std::cout << "TOAD - Total Order HTN Approximation with DFA." << std::endl;
 //
-    FA fa;
+//    FA fa;
 //
 //    //fa.compileToDFA();
 //
 //    /*
 //    // test minimization
-    fa.sInit.insert(0);
-    fa.sGoal.insert(2);
-    fa.sGoal.insert(3);
-    fa.sGoal.insert(4);
-    fa.numStates = 6;
-    fa.numSymbols = 2;
-    //fa.delta->ensureFW();
-    fa.addRule(0,0,1);
-    fa.addRule(0,1,2);
-    fa.addRule(1,0,0);
-    fa.addRule(1,1,3);
-    fa.addRule(2,0,4);
-    fa.addRule(2,1,5);
-    fa.addRule(3,0,4);
-    fa.addRule(3,1,5);
-    fa.addRule(4,0,4);
-    fa.addRule(4,1,5);
-    fa.addRule(5,0,5);
-    fa.addRule(5,1,5);
-    fa.printRules();
+//    fa.sInit.insert(0);
+//    fa.sGoal.insert(2);
+//    fa.sGoal.insert(3);
+//    fa.sGoal.insert(4);
+//    fa.numStates = 6;
+//    fa.numSymbols = 2;
+//    //fa.delta->ensureFW();
+//    fa.addRule(0,0,1);
+//    fa.addRule(0,1,2);
+//    fa.addRule(1,0,0);
+//    fa.addRule(1,1,3);
+//    fa.addRule(2,0,4);
+//    fa.addRule(2,1,5);
+//    fa.addRule(3,0,4);
+//    fa.addRule(3,1,5);
+//    fa.addRule(4,0,4);
+//    fa.addRule(4,1,5);
+//    fa.addRule(5,0,5);
+//    fa.addRule(5,1,5);
+//    fa.printRules();
 //     */
 //
 //    fa.sInit.insert(0);
@@ -75,8 +75,7 @@ int main(int argc, char *argv[]) {
 //    //fa.printRules();
 //    fa.printDOT();
 //
-    exit(0);
-#if FALSE
+
 #ifndef NDEBUG
     cout
             << "You have compiled TOAD without setting the NDEBUG flag. This will make it slow and should only be done for debug."
@@ -354,5 +353,5 @@ vector<int> *mToRule(const Model *htn, int iM) {
         cout << endl;
     }
     return rule;
-#endif
+
 }

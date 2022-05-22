@@ -19,7 +19,7 @@ typedef unordered_map<tLabelID, set<tStateID> *> innerFW;
 typedef unordered_map<tStateID, set<tStateID> *> innerBW;
 typedef unordered_map<tStateID, innerFW *> transitionFW;
 typedef unordered_map<tLabelID, innerBW *> transitionBW;
-const int epsilon = USHRT_MAX;
+const int epsilon = -1;
 
 class TransitionContainer {
 

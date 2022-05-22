@@ -55,8 +55,8 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     os << "begin_variable\n";
     os << "var" << m->numVars << "\n";
     os << "-1\n";
-    os << fa->numStates << "\n";
-    for (int i = 0; i < fa->numStates; i++) {
+    os << fa->fst->NumStates() << "\n";
+    for (int i = 0; i < fa->fst->NumStates(); i++) {
         os << "Atom dfa(s" << i << ")\n";
     }
     os << "end_variable\n";
@@ -94,8 +94,9 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     for (int i = 0; i < m->numVars; i++) {
         os << s0[i] << "\n";
     }
-    assert(fa->sInit.size() == 1);
-    os << *fa->sInit.begin() << "\n"; // initial value of automaton
+//    assert(fa->sInit.size() == 1);
+
+    os << fa->fst->Start() << "\n"; // initial value of automaton
     os << "end_state\n";
 
     // write goal definition
@@ -108,12 +109,27 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
             var++;
         os << var << " " << (val - m->firstIndex[var]) << "\n";
     }
-    assert(fa->sGoal.size() == 1);
-    os << m->numVars << " " << *fa->sGoal.begin()  << "\n"; // reach final state of automaton
+//    assert(fa->sGoal.size() == 1);
+    vector<int> goalStates;
+    for (int i = 0; i < fa->fst->NumStates(); i++) {
+        if (fa->fst->Final(i) == 0) {
+            goalStates.push_back(i);
+        }
+    }
+    assert(goalStates.size() == 1);
+    os << m->numVars << " " << goalStates[0]  << "\n"; // reach final state of automaton
     os << "end_goal\n";
 
     // count actions
-    int numActions = fa->delta->numTransitions;
+    cout << "counting actions..." << endl;
+    int numActions = 0;
+    for (StateIterator<StdVectorFst> siter(*fa->fst); !siter.Done(); siter.Next()) {
+        int state_id = siter.Value();
+        for (ArcIterator<StdFst> aiter(*fa->fst, state_id); !aiter.Done(); aiter.Next()) {
+            numActions++;
+        }
+    }
+    cout << "done." << endl;
     os << numActions << "\n";
 
     // generate SAS+ representation
@@ -126,55 +142,64 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
 
     // write actions
     int check = 0;
-    fa->delta->fullIterInit();
-    tStateID from, to;
-    tLabelID a;
-    while (fa->delta->fullIterNext(&from, &a, &to)) {
-        assert((a < m->numActions) || (a == epsilon));
-        if (a == epsilon) {
-            assert (from != to);
+//    fa->delta->fullIterInit();
+//    tStateID from, to;
+//    tLabelID a;
+//    while (fa->delta->fullIterNext(&from, &a, &to)) {
+//        assert((a < m->numActions) || (a == epsilon));
+    for (StateIterator<StdVectorFst> siter(*fa->fst); !siter.Done(); siter.Next()) {
+        int state_id = siter.Value();
+        for (ArcIterator<StdFst> aiter(*fa->fst, state_id); !aiter.Done(); aiter.Next()) {
+            const StdArc &arc = aiter.Value();
+            int a = arc.ilabel - 1;
+            assert(a < htn->numActions);
+            int from = state_id;
+            int to = arc.nextstate;
+            if (a == -1) { // epsilon
+                assert (from != to);
+                check++; // count actions actually written
+                os << "begin_operator\n";
+                os << "epsilon\n";
+                os << 0 << "\n"; // prevail constraints
+                os << 1 << "\n"; // effects
+                os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
+                os << 1 << "\n"; // action costs, 0 means unicosts
+                os << "end_operator\n";
+                continue;
+            }
+
+            // write everything
             check++; // count actions actually written
+            int numPrevail = numPrev[a] / 2;
+            int numEffect = (numEff[a] / 4);
+            if (from != to) {
+                numEffect++;
+            } else {
+                numPrevail++;
+            }
             os << "begin_operator\n";
-            os << "epsilon\n";
-            os << 0 << "\n"; // prevail constraints
-            os << 1 << "\n"; // effects
-            os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
+            os << m->taskNames[a] << "\n";
+            os << numPrevail << "\n";
+            for (int j = 0; j < numPrev[a]; j += 2) {
+                os << prev[a][j] << " " << prev[a][j + 1] << "\n";
+            }
+            if (from == to) { // dfa prec
+                os << m->numVars << " " << from << "\n";
+            }
+            os << numEffect << "\n"; // one is added for the dfa
+            for (int j = 0; j < numEff[a]; j += 4) {
+                os << eff[a][j] << " " << eff[a][j + 1] << " " << eff[a][j + 2] << " " << eff[a][j + 3] << "\n";
+            }
+            if (from != to) { // dfa effect
+                os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
+            }
             os << 1 << "\n"; // action costs, 0 means unicosts
             os << "end_operator\n";
-            continue;
         }
-
-        // write everything
-        check++; // count actions actually written
-        int numPrevail = numPrev[a] / 2;
-        int numEffect = (numEff[a] / 4);
-        if (from != to) {
-            numEffect++;
-        } else {
-            numPrevail++;
-        }
-        os << "begin_operator\n";
-        os << m->taskNames[a] << "\n";
-        os << numPrevail << "\n";
-        for (int j = 0; j < numPrev[a]; j += 2) {
-            os << prev[a][j] << " " << prev[a][j + 1] << "\n";
-        }
-        if (from == to) { // dfa prec
-            os << m->numVars << " " << from << "\n";
-        }
-        os << numEffect << "\n"; // one is added for the dfa
-        for (int j = 0; j < numEff[a]; j += 4) {
-            os << eff[a][j] << " " << eff[a][j + 1] << " " << eff[a][j + 2] << " " << eff[a][j + 3] << "\n";
-        }
-        if (from != to) { // dfa effect
-            os << 0 << " " << m->numVars << " " << from << " " << to << "\n";
-        }
-        os << 1 << "\n"; // action costs, 0 means unicosts
-        os << "end_operator\n";
     }
-
     os << 0 << "\n";
-    assert(check == numActions);
+//    assert(check == numActions);
+//    os << "NUMACTIONS == " << numActions << "\n";
     os.close();
 }
 
