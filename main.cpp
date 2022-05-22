@@ -2,17 +2,8 @@
 #include "htnModel/Model.h"
 #include "translation/FiniteAutomaton.h"
 #include "translation/CFGtoFDAtranslator.h"
-#include "ModelWriter.h"
-#include "optimization/RPGReachability.h"
-#include "verification/GroundVerifier.h"
 #include "translation/TailRecAnalysis.h"
-#include "optimization/DFAMinimization.h"
 #include "translation/CFtoRegGrammarEnc.h"
-#include "ChainWriter.h"
-#include "utils/TripleSet.h"
-#include "BinSetWriter.h"
-#include "hDfaDistance.h"
-#include "dfsDelRelReachability.h"
 #include "dfaLib/FA.h"
 #include "SASWriter.h"
 #include <vector>
@@ -27,54 +18,6 @@ using namespace progression;
 int main(int argc, char *argv[]) {
 
     std::cout << "TOAD - Total Order HTN Approximation with DFA." << std::endl;
-//
-//    FA fa;
-//
-//    //fa.compileToDFA();
-//
-//    /*
-//    // test minimization
-//    fa.sInit.insert(0);
-//    fa.sGoal.insert(2);
-//    fa.sGoal.insert(3);
-//    fa.sGoal.insert(4);
-//    fa.numStates = 6;
-//    fa.numSymbols = 2;
-//    //fa.delta->ensureFW();
-//    fa.addRule(0,0,1);
-//    fa.addRule(0,1,2);
-//    fa.addRule(1,0,0);
-//    fa.addRule(1,1,3);
-//    fa.addRule(2,0,4);
-//    fa.addRule(2,1,5);
-//    fa.addRule(3,0,4);
-//    fa.addRule(3,1,5);
-//    fa.addRule(4,0,4);
-//    fa.addRule(4,1,5);
-//    fa.addRule(5,0,5);
-//    fa.addRule(5,1,5);
-//    fa.printRules();
-//     */
-//
-//    fa.sInit.insert(0);
-//    fa.sGoal.insert(1);
-//    fa.numStates = 4;
-//    fa.numSymbols = 2;
-//    fa.addRule(0,0,0);
-//    fa.addRule(0,0,2);
-//    fa.addRule(0,1,0);
-//    fa.addRule(2,0,3);
-//    fa.addRule(2,1,3);
-//    fa.addRule(3,0,1);
-//    fa.addRule(3,1,1);
-//
-//    //fa.delta.
-//    //fa.printDOT();
-//    fa.compileToDFA();
-//    fa.minimize();
-//    //fa.printRules();
-//    fa.printDOT();
-//
 
 #ifndef NDEBUG
     cout
@@ -84,31 +27,19 @@ int main(int argc, char *argv[]) {
     string s;
     timeval tp;
 
-    bool verify = false;
-    bool determineIfTR = false;
     int seed = 42;
     bool printhelp = false;
     if (argc < 2) {
         printhelp = true;
     } else {
         string str = argv[1];
-        if (str == "-v") {
-            verify = true;
-            s = argv[2];
-            if (argc != 4) printhelp = true;
-        } else if (str == "-tr") {
-            determineIfTR = true;
-            s = argv[2];
-        } else {
-            s = argv[1];
-            if (argc == 3) seed = atoi(argv[2]);
-        }
+        s = argv[1];
+        if (argc == 3) seed = atoi(argv[2]);
     }
 
     if (printhelp){
         cout << "usage:" << endl;
         cout << "toad pandagrounding [seed]" << endl;
-        cout << "toad -v pandagrounding sasplan" << endl;
         exit(-1);
     }
 
@@ -125,35 +56,12 @@ int main(int argc, char *argv[]) {
     Model *htn = new Model();
     htn->filename = s;
     htn->read(s);
-    if (!verify) {
-        htn->calcSCCs();
-    }
+    htn->calcSCCs();
     gettimeofday(&tp, NULL);
-
-//    if (determineIfTR) {
-//        TailRecAnalysis tra;
-//        string filename = "/home/dh/Dokumente/versioniert/Source-Code/TOAD-Source/examples/testTR.lp";
-//        tra.analyse(htn);
-//        exit(0);
-//    }
 
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
     startT = endT;
-
-    if (verify) {
-        /*
-        * Creating verify problem
-        */
-        cout << "Creating verify problem." << endl;
-        GroundVerifier v;
-        string sasPlan = argv[3];
-        v.verify(htn, sasPlan);
-        gettimeofday(&tp, NULL);
-        long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << "- [timeCreatingVerifyproblem=" << (endT - startT) << "]" << endl;
-        exit(0);
-    }
 
     /*
     * Building grammar
@@ -195,8 +103,6 @@ int main(int argc, char *argv[]) {
     cout << "- [timeHtnToGrammar=" << (endT - startT) << "]" << endl;
     startT = endT;
 
-    int S = htn->initialTask;
-    //to2s->printRules();
     if (!to2s->isRegurlar) {
         //to2s->printRules();
         CFtoRegGrammarEnc approx;
@@ -215,82 +121,21 @@ int main(int argc, char *argv[]) {
     }
     //to2s->printRules();
 
-    //to2s->printRules();
     gettimeofday(&tp, NULL);
     long startB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "Building DFA" << endl;
-    FA* fa = to2s->makeFABU(htn, htn->initialTask);
+    StdVectorFst* fa = to2s->makeFABU(htn, htn->initialTask);
     gettimeofday(&tp, NULL);
     long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
     //fa->showDOT();
     //fa->showDOT(htn->taskNames);
-    //exit(0);
     string dFile2 = "domain.pddl";
     string pFile2 = "problem.sas";
 
     SASWriter mw2;
     mw2.write(htn, fa, dFile2, pFile2);
 
-    exit(0);
-
-    cout << "Creating DFA" << endl;
-    cout << "- starting symbol: " << S << endl;
-    cout << "- building dfa..." << endl;
-    to2s->dfa->startState = to2s->dfa->stateID++;
-    to2s->dfa->finalState = to2s->dfa->stateID++;
-    to2s->makeFA(to2s->dfa->startState, S, to2s->dfa->finalState);
-    cout << "- dfa states " << to2s->dfa->stateID << ". [dfaSraw=" << to2s->dfa->stateID << "]" << endl;
-    cout << "- dfa transitions " << to2s->dfa->numTransitions << ". [dfaTraw=" << to2s->dfa->numTransitions << "]"
-         << endl;
-    gettimeofday(&tp, NULL);
-    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "- [timeBuildingDFA=" << (endT - startT) << "]" << endl;
-    startT = endT;
-
-    /*
-    cout << "Minimizing DFA" << endl;
-    DFAMinimization mini;
-    mini.minimize(htn, to2s->dfa, to2s->dfa->startState, to2s->dfa->finalState);
-    cout << "done!" << endl;
-
-    cout << "Performing delete-relaxed forward reachability analysis" << endl;
-    RPGReachability *rpg = new RPGReachability(htn);
-    rpg->computeReachability(to2s->dfa);
-    */
-
-    //string hFile = "dfad.heuristic";
-    //hDfaDistance dfad;
-    //dfad.write(hFile, to2s->dfa, htn);
-    dfsDelRelReachability drReachability;
-    drReachability.reachabilityAnalysis(to2s->dfa, htn);
-
-    cout << "Creating output model" << endl;
-    string dFile = "domain.pddl";
-    string pFile = "problem.sas";
-
-    ModelWriter mw;
-    //ChainWriter mw;
-    //BinSetWriter mw;
-    bool writePDDL = false; // PDDL or SAS+
-    if (writePDDL)
-        cout << "- Writing PDDL representation. [writer=PDDL]" << endl;
-    else
-        cout << "- Writing FD's SAS+ representation. [writer=SAS]" << endl;
-    mw.write(htn, to2s->dfa, writePDDL, dFile, pFile);
-    gettimeofday(&tp, NULL);
-    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "- [timeWritingModel=" << (endT - startT) << "]" << endl;
-    cout << "- [timeTotal=" << (endT - startTotal) << "]" << endl;
-    //delete to2s;
-
-    cout << "Finished!" << endl;
-
-    //mw.dfa->print(htn->taskNames, 0, 1);
-    //htn->printTDG();
-    delete htn;
-
-    //to2s->dfa.print(htn->taskNames, startState, finalState);
     return 0;
 }
 

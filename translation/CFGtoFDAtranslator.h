@@ -57,7 +57,7 @@ public:
     const int recCycle = 4;
 
     // const for epsilon symbol
-    const int Epsilon = 65535;
+    const int Epsilon = -1;
 
     // grammar definition
     int numSymbols = 0;
@@ -84,10 +84,6 @@ public:
 
     void analyseRules(bool writeProtocol);
 
-    void makeFA(int q0, vector<int> *alpha, int q1);
-
-    void makeFA(int q0, int alpha, int q1);
-
     void printRule(grRule *rule);
 
     bool isRegurlar;
@@ -107,34 +103,34 @@ public:
 
     void printRules();
 
-    FA * makeFABU(Model *htn, int tinit);
+    StdVectorFst *makeFABU(Model *htn, int tinit);
 
 //    eRecursion * getRecInfo(const vector<int> *sccs);
 
     map<int, FA *> FAs;
     //eRecursion* recursion;
     //vector<int> * sccs;
-    FA *getFA(tLabelID alpha);
+    StdVectorFst *getFA(tLabelID alpha);
 
-    FA *getFaNonRec(tLabelID  A);
+    StdVectorFst *getFaNonRec(tLabelID  A);
 
-    FA * getFaRightRec(tLabelID  A);
+    StdVectorFst * getFaRightRec(tLabelID  A);
 
-    FA *getFaLeftRec(tLabelID  A);
+    StdVectorFst *getFaLeftRec(tLabelID  A);
 
-    void *countFA(tLabelID alpha);
-
-    void *countFaNonRec(tLabelID  A);
-
-    void * countFaRightRec(tLabelID  A);
-
-    void *countFaLeftRec(tLabelID  A);
 
     void statePruning(Model *htn, FA *pFa);
 
-    void cleanupSubFAs(int label);
 
-    int nextNew();
+    void addRule(StdVectorFst *fst, int from, int label, int to, int costs);
+
+    int nextState(StdVectorFst *fst);
+
+    void showDOT(StdVectorFst *fst);
+
+    void showDOT(StdVectorFst *fst, string *taskNames);
+
+    StdVectorFst *getNewFA();
 };
 
 

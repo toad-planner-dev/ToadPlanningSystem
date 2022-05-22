@@ -17,7 +17,7 @@ class SASWriter {
     void getSASRepresentation(const bool *isBoolean, int **prev, int *numPrev, int **eff, int *numEff);
 
 public:
-    void write(Model *htn, FA *automaton, string dName, string pName);
+    void write(Model *htn, StdVectorFst *automaton, string dName, string pName);
 };
 
 

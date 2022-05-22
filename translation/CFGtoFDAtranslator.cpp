@@ -4,11 +4,10 @@
 
 #include "CFGtoFDAtranslator.h"
 #include <cassert>
-#include <unordered_map>
-#include <fstream>
 #include <map>
 #include <vector>
-#include "../dfaLib/FA.h"
+#include <iostream>
+#include <iomanip>
 
 void CFGtoFDAtranslator::addRule(vector<int> *r) {
     grRule *r2 = new grRule();
@@ -21,120 +20,11 @@ void CFGtoFDAtranslator::addRule(vector<int> *r) {
     tempRules.push_back(r2);
 }
 
-void CFGtoFDAtranslator::makeFA(int q0, vector<int> *alpha, int q1) {
-    assert(alpha->size() > 0);
-    if (alpha->size() == 1) {
-        makeFA(q0, alpha->at(0), q1);
-    } else if (alpha->size() > 1) {
-        int q = this->dfa->stateID++;
-        int X = alpha->at(0);
-        vector<int> *beta = new vector<int>;
-        for (int i = 1; i < alpha->size(); i++)
-            beta->push_back(alpha->at(i));
-        makeFA(q0, X, q);
-        makeFA(q, beta, q1);
-    }
-    delete alpha;
-}
-
-void CFGtoFDAtranslator::makeFA(int q0, int A, int q1) {
-    if (A == Epsilon) {
-        dfa->addRule(q0, A, q1);
-    } else if (isTerminalSym(A)) {
-        dfa->addRule(q0, A, q1);
-    } else {
-        if (SymToNi[A] >= 0) {
-            // get partition containing A
-            int Nl = SymToNi[A];
-
-            // create new states
-            unordered_map<int, int> qB;
-            for (int j = 0; j < NiSize[Nl]; j++) {
-                int task = Ni[Nl][j];
-                int id = this->dfa->stateID++;
-                qB[task] = id;
-            }
-
-            // left recursion
-            if (NiRec[Nl] == recLeft) {
-                // iterate rules that decompose some C belonging to the same partition
-                for (int i = 0; i < NiSize[Nl]; i++) {
-                    int C = Ni[Nl][i]; // left-hand side
-                    int qC = qB[C];
-                    for (int l = rFirst[C]; l <= rLast[C]; l++) {
-                        grRule *rule = rules[l];
-                        int D = rule->right[0]; // first right-hand side
-                        int Nk = -1;
-                        if (D >= 0) {
-                            Nk = SymToNi[D];
-                        }
-                        if (Nk != Nl) {
-                            makeFA(q0, copySubSeq(rule, 0, rule->rLength), qC);
-                        } else {
-                            int qD = qB[D];
-                            if (rule->rLength > 1) {
-                                makeFA(qD, copySubSeq(rule, 1, rule->rLength), qC);
-                            } else {
-                                makeFA(qD, -1, qC);
-                            }
-                        }
-                    }
-                }
-                int qA = qB[A];
-                dfa->addRule(qA, Epsilon, q1);
-            } else { // right or cyclic
-                // iterate rules that decompose some C belonging to the same partition
-                for (int i = 0; i < NiSize[Nl]; i++) {
-                    int C = Ni[Nl][i]; // left-hand side
-                    int qC = qB[C];
-
-                    for (int l = rFirst[C]; l <= rLast[C]; l++) {
-                        grRule *rule = rules[l];
-                        int D = rule->right[rule->rLength - 1]; // last right-hand side
-                        int Nk = -1;
-                        if (D >= 0) {
-                            Nk = SymToNi[D];
-                        }
-                        if (Nk != Nl) {
-                            makeFA(qC, copySubSeq(rule, 0, rule->rLength), q1);
-                        } else {
-                            int qD = qB[D];
-                            if (rule->rLength > 1) {
-                                makeFA(qC, copySubSeq(rule, 0, rule->rLength - 1), qD);
-                            } else {
-                                makeFA(qC, -1, qD);
-                            }
-                        }
-                    }
-                }
-                int qA = qB[A];
-                dfa->addRule(q0, Epsilon, qA);
-            }
-        } else { // a non-recursive non-terminal
-            for (int l = rFirst[A]; l <= rLast[A]; l++) {
-                grRule *rule = rules[l];
-                makeFA(q0, copySubSeq(rule, 0, rule->rLength), q1);
-            }
-        }
-    }
-}
 
 int CFGtoFDAtranslator::isTerminalSym(int a) {
     return (a != Epsilon) && (a < this->numTerminals);
 }
 
-vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
-    vector<int> *out = new vector<int>;
-    assert(from >= 0);
-    assert(from < to);
-    assert(from < in->rLength);
-    assert(to > 0);
-    assert(to <= in->rLength);
-    for (int i = from; i < to; i++) {
-        out->push_back(in->right[i]);
-    }
-    return out;
-}
 
 void CFGtoFDAtranslator::sortRules() {
     quick(0, numRules - 1);
@@ -728,115 +618,71 @@ void CFGtoFDAtranslator::printRules() {
 // * New Stuff
 // *************************************************
 
-FA * CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
-    // create data needed to destroy sub-automata
-//    for (int iSym = numTerminals; iSym < numSymbols; iSym++) {
-//        for (int iR = rFirst[iSym]; iR <= rLast[iSym]; iR++) {
-//
-//        }
-//    }
-//
-//    for (int iR = 0; iR < numRules; iR++) {
-//        grRule* r = rules[iR];
-//        for(int iSym = 0; iSym < r->rLength; iSym++) {
-//            int sym = r->right[iSym];
-//            if (subFANeededBy.find(sym) == subFANeededBy.end()) {
-//                subFANeededBy.insert({sym, 0});
-//            }
-//            subFANeededBy[sym]++;
-//        }
-//    }
-    //subFANeededBy[tinit] = 1;
-    //countFA(tinit);
-
+bool reduceSubFAs = true;
+StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     this->numNonTerminals = htn->numTasks - htn->numActions;
 
+    cout << "- building sub-automata..." << endl;
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
+    double reduction = 0;
     for (int i = this->numTerminals; i < this->numSymbols; i++) {
-//        cout << "==================== " << i << "==================== " << endl;
-        FA* fa = getFA(i);
-//        cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
-//        StdVectorFst* fst2 = new StdVectorFst();
-//        cout << "determinize" << endl;
-//        Determinize(*fa->fst, fst2);
-//        fa->fst = fst2;
-//        cout << "minimize" << endl;
-//        Minimize(fa->fst);
-//        cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
-        label_fst_pairs.emplace_back(i + 1, fa->fst);
-        //fa->showDOT(htn->taskNames);
+        StdVectorFst* fst = getFA(i);
+        if (reduceSubFAs) {
+            int start = (int) fst->NumStates();
+            StdVectorFst *fst2 = getNewFA();
+            Determinize(*fst, fst2);
+            delete fst;
+            fst = fst2;
+            Minimize(fst);
+            reduction += 100.0 / start * (int) fst->NumStates();
+            if (i == this->numSymbols - 1) {
+                reduction /= (double) (numSymbols - numTerminals);
+                cout << "  - reduced size of sub-automata on average by " << fixed << setprecision(2) << (100.0 - reduction) << "%." << endl;
+            }
+        }
+        label_fst_pairs.emplace_back(i + 1, fst);
     }
-    FA* fa= new FA();
-    cout << "Combining elementary automata..." << endl;
-    Replace(label_fst_pairs, fa->fst, htn->initialTask + 1, true);
-    //fa->showDOT();
-//    int nst = ;
-//    int nar = fa->fst->NumArcs();
-    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
-    StdVectorFst* fst2 = new StdVectorFst();
-    cout << "determinize" << endl;
-    Determinize(*fa->fst, fst2);
-    fa->fst = fst2;
-    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
-    cout << "minimize" << endl;
-    Minimize(fa->fst);
-    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
-//    StdVectorFst* fst3 = new StdVectorFst();
-//    cout << "playing dirty tricks" << endl;
+
+    cout << "- combining sub-automata..." << endl;
+    StdVectorFst* fst = getNewFA();
+    Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
+    for (auto subFA : label_fst_pairs) {
+        delete subFA.second;
+    }
+    int start = (int)fst->NumStates();
+
+    cout << "  - automaton has " << (int)fst->NumStates() << " states." << endl;
+    StdVectorFst* fst2 = getNewFA();
+    cout << "- make deterministic" << endl;
+    Determinize(*fst, fst2);
+    delete fst;
+    fst = fst2;
+
+    cout << "  - automaton has " << (int)fst->NumStates() << " states." << endl;
+    cout << "- minimize automaton" << endl;
+    Minimize(fst);
+    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
+    reduction = 100.0 / start * (int)fst->NumStates();
+    cout << "- reduced size of full automaton by " << fixed << setprecision(2) << (100.0 - reduction) << "%." << endl;
+//    StdVectorFst* fst3 = getNewFA();
 //    ShortestPath(*fa->fst, fst3, 10);
 //    fa->fst = fst3;
-    cout << "- automaton has " << (int)fa->fst->NumStates() << " states." << endl;
-    fa->numSymbols = numSymbols;
-    //fa->showDOT(htn->taskNames);
-
-    //FA* fa = getFA(tinit);
-    //assert(subDFAs.size() == 1);
-    //cout << "- build " << totalSubFAs << " sub-automata, " << reuses << " reuses." << endl;
-    //cout << fa->sGoal.size() << " " << fa->sInit.size() << endl;
-//    cout << "  - determinization reduced transitions from " << fa->delta->numTransitions << " to ";
-//    fa->compileToDFA();
-//    cout << fa->delta->numTransitions << endl;
-    //fa->showDOT(htn->taskNames);
-//    fa->showDOT();
-//    cout << "  - State-based pruning reduced transitions from " << fa->delta->numTransitions << " to ";
-//    statePruning(htn, fa);
-//    cout << fa->delta->numTransitions << endl;
-//    fa->compileToDFA();
-//    cout << fa->delta->numTransitions << " -> ";
-//    cout << "  - DFA minimization reduced transitions from " << fa->delta->numTransitions << " to ";
-//    fa->minimize();
-//    cout << fa->delta->numTransitions << endl;
-
-//    string fName = "./dfad.heuristic";
-//    cout << "Writing h values";
-
-//    fa->singleGoal();
-//    fa->writeDfadHeuristic(fName);
-//    fa->showDOT();
-    //fa->showDOT(htn->taskNames);
-    //assert(fa->numStatesCorrect());
-    return fa;
+//    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
+//    showDOT(fst, htn->taskNames);
+//    showDOT(fst);
+    return fst;
 }
 
-FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
+StdVectorFst *CFGtoFDAtranslator::getFA(tLabelID alpha) {
     //cout << "processing alpha " << alpha << endl;
     totalSubFAs++;
-    FA *fa = new FA;
-    if (subDFAs.find(alpha) != subDFAs.end()) {
-        reuses++;
-        fa = subDFAs.at(alpha);
-    } else if (alpha == Epsilon) {
-        fa->numStates = 2;
-        fa->numSymbols = 1;
-        fa->sInit.insert(0);
-        fa->sGoal.insert(1);
-        fa->addRule(0,epsilon, 1);
-        //subDFAs.insert({epsilon, fa});
+    StdVectorFst *fa = getNewFA();
+    if (alpha == Epsilon) {
+        fa->AddStates(2);
+        fa->SetStart(0);
+        fa->SetFinal(1);
+        addRule(fa, 0, epsilon, 1, 0);
     } else {
-//        if(alpha == 51) {
-//            cout << "" << endl;
-//        }
-
         int Nj = SymToNi[alpha];
         if (SymToNi[alpha] == -1) {
             fa = getFaNonRec(alpha);
@@ -845,123 +691,53 @@ FA *CFGtoFDAtranslator::getFA(tLabelID alpha) {
         } else {
             fa = getFaRightRec(alpha);
         }
-//        fa->fileLabel = alpha;
-//        fa->prim = this->numTerminals;
-//        fa->showDOT();
-//        fa->fileLabel = -1;
-
-
-//        cout << alpha << endl;
-//        if(alpha == 51) {
-//            fa->showDOT();
-//        }
-//        fa->compileToDFA();
-//        if(alpha == 51) {
-//            fa->showDOT();
-//        }
-//        fa->minimize();
-//        if(alpha == 51) {
-//            fa->showDOT();
-//        }
-//        fa->singleGoal();
-//        if(alpha == 51) {
-//            fa->showDOT();
-//        }
-//        subDFAs.insert({alpha, fa});
-//        if (subDFAs.find(51) != subDFAs.end()) {
-//            subDFAs[51]->showDOT();
-//        }
-//        float progress = 100 / numNonTerminals * subDFAs.size();
-//        cout << (int) progress << endl;
     }
     return fa;
 }
 
-bool noSubstitution = true;
-FA *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
-    FA* fa = new FA();
-    int s0 = fa->nextState();
-    fa->makeInit(s0);
-    int sF = fa->nextState();
-    fa->makeFinal(sF);
-//    fa->sInit.insert(s0);
-//    fa->sGoal.insert(sF);
-    fa->numSymbols = numSymbols;
+StdVectorFst *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
+    StdVectorFst* fa = getNewFA();
+    int s0 = nextState(fa);
+    fa->SetStart(s0);
+    int sF = nextState(fa);
+    fa->SetFinal(sF);
 
-    //fa->numStates = 2;
     for (int j = rFirst[A]; j <= rLast[A]; j++) {
-//        if(A == 51){
-//            printRule(rules[j]);
-//        }
-
-//        if (rFirst[A] < 0) {
-//            cout << "looking for rule for " << A << endl << endl;
-//            for(int i = 0; i < numSymbols; i++) {
-//                cout << rFirst[A] << " to " << rLast[A] << endl;
-//            }
-//            cout << "..." << endl;
-//        }
+//          printRule(rules[j]);
         assert(!isTerminalSym(A));
         assert(rules[j]->left == A);
         int lastState = s0;
         for (int k = 0; k < rules[j]->rLength; k++) {
             int label = rules[j]->right[k];
             if (k < rules[j]->rLength - 1) {
-                int newState = fa->nextState();
-
-                if (this->isTerminalSym(label) || noSubstitution) {
-                    fa->addRule(lastState, label, newState);
-                } else {
-                    FA* subFA = getFA(label);
-                    fa->addSubFA(lastState, subFA, newState);
-                    cleanupSubFAs(label);
-                }
+                int newState = nextState(fa);
+                addRule(fa, lastState, label, newState, 1);
                 lastState = newState;
             } else {
-                if (this->isTerminalSym(label) || noSubstitution) {
-                    fa->addRule(lastState, label, sF);
-                } else {
-                    FA* subFA = getFA(label);
-//                    if(A == 51) {
-//                        fa->showDOT();
-//                        subFA->showDOT();
-//                    }
-                    fa->addSubFA(lastState, subFA, sF);
-//                    if(A == 51)
-//                        fa->showDOT();
-                    cleanupSubFAs(label);
-                }
+                addRule(fa, lastState, label, sF, 1);
             }
         }
     }
-//    if (!fa->numStatesCorrect()) {
-//        fa->showDOT();
-//        fa->numStatesCorrect();
-//    }
-//    assert(fa->numStatesCorrect());
     return fa;
 }
 
-FA *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
+StdVectorFst *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
     int Nj = SymToNi[A];
-    FA *fa = new FA();
+    StdVectorFst *fa = getNewFA();
 
-    int s0 = fa->nextState();
-    fa->makeInit(s0);
-    int sF = fa->nextState();
-    fa->makeFinal(sF);
-    fa->numSymbols = numSymbols;
-
+    int s0 = nextState(fa);
+    fa->SetStart(s0);
+    int sF = nextState(fa);
+    fa->SetFinal(sF);
 
     map<int, int> symToState;
     symToState.insert({A, sF});
     for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
         int C = Ni[Nj][i];
         if (C != A) {
-            symToState.insert({C, fa->nextState()});
+            symToState.insert({C, nextState(fa)});
         }
     }
-    fa->sGoal.insert(symToState[A]);
 
     for (int i = 0; i < NiSize[Nj]; i++) {
         int C = Ni[Nj][i];
@@ -986,54 +762,41 @@ FA *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
 
                 // when the only sign is also in the SCC, the "rest" is empty
                 if (rule->rLength == 1) {
-                    fa->addRule(symToState[D], epsilon, symToState[C]);
+                    addRule(fa, symToState[D], epsilon, symToState[C], 1);
                 }
             }
             for (; k < rule->rLength; k++) {
                 int label = rule->right[k];
                 int target;
                 if (k < rule->rLength - 1) {
-                    target = fa->nextState();
+                    target = nextState(fa);
                 } else {
                     target = symToState[C];
                 }
-                if (this->isTerminalSym(label) || noSubstitution) {
-                    fa->addRule(lastState, label, target);
-                } else {
-                    FA *subFA = getFA(label);
-                    fa->addSubFA(lastState, subFA, target);
-                    cleanupSubFAs(label);
-                }
+                addRule(fa, lastState, label, target, 1);
                 lastState = target;
             }
         }
     }
-//    if (!fa->numStatesCorrect()) {
-//        fa->showDOT();
-//        fa->numStatesCorrect();
-//    }
-////    fa->showDOT();
-//    assert(fa->numStatesCorrect());
     return fa;
 }
 
-FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
+StdVectorFst * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
     int Nj = SymToNi[A];
-    FA *fa = new FA();
-    fa->numSymbols = numSymbols;
+    StdVectorFst *fa = getNewFA();
 
     map<int, int> symToState;
-    int s0 = fa->nextState();
-    fa->makeInit(s0);
-    int sF = fa->nextState();
-    fa->makeFinal(sF);
+    int s0 = nextState(fa);
+    fa->SetStart(s0);
+    int sF = nextState(fa);
+    fa->SetFinal(sF);
 
     symToState.insert({A, s0});
 
     for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
         int C = Ni[Nj][i];
         if (C != A) {
-            symToState.insert({C, fa->nextState()});
+            symToState.insert({C, nextState(fa)});
         }
     }
 
@@ -1057,21 +820,15 @@ FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
 
                 // when the only sign is also in the SCC, the "rest" is empty
                 if (proceedTo == 0) {
-                    fa->addRule(symToState[C], epsilon, symToState[D]);
+                    addRule(fa, symToState[C], epsilon, symToState[D], 1);
                 }
             }
             int lastState = symToState[C];
             for (int k = 0; k < proceedTo; k++) {
                 int label = rule->right[k];
                 if (k < proceedTo - 1) {
-                    int newState = fa->nextState();
-                    if (this->isTerminalSym(label) || noSubstitution) {
-                        fa->addRule(lastState, label, newState);
-                    } else {
-                        FA* subFA = getFA(label);
-                        fa->addSubFA(lastState, subFA, newState);
-                        cleanupSubFAs(label);
-                    }
+                    int newState = nextState(fa);
+                    addRule(fa, lastState, label, newState, 1);
                     lastState = newState;
                 } else {
                     int target;
@@ -1080,105 +837,12 @@ FA * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
                     } else {
                         target = symToState[D];
                     }
-                    if (this->isTerminalSym(label) || noSubstitution) {
-                        fa->addRule(lastState, label, target);
-                    } else {
-                        FA *subFA = getFA(label);
-                        fa->addSubFA(lastState, subFA, target);
-                        cleanupSubFAs(label);
-                    }
+                    addRule(fa, lastState, label, target, 1);
                 }
             }
         }
     }
-//    if (!fa->numStatesCorrect()) {
-//        fa->showDOT();
-//        fa->numStatesCorrect();
-//    }
-//    fa->showDOT();
-//    assert(fa->numStatesCorrect());
-
     return fa;
-}
-
-
-void *CFGtoFDAtranslator::countFA(tLabelID alpha) {
-    int Nj = SymToNi[alpha];
-    if (SymToNi[alpha] == -1) {
-        countFaNonRec(alpha);
-    } else if (NiRec[Nj] == recLeft) {
-        countFaLeftRec(alpha);
-    } else {
-        countFaRightRec(alpha);
-    }
-    if (subFANeededBy.find(alpha) == subFANeededBy.end()) {
-        subFANeededBy.insert({alpha, 0});
-    }
-    subFANeededBy[alpha]++;
-}
-
-void *CFGtoFDAtranslator::countFaNonRec(tLabelID A) {
-    for (int j = rFirst[A]; j <= rLast[A]; j++) {
-        for (int k = 0; k < rules[j]->rLength; k++) {
-            int label = rules[j]->right[k];
-            if (!this->isTerminalSym(label)) {
-                countFA(label);
-            }
-        }
-    }
-}
-
-void *CFGtoFDAtranslator::countFaRightRec(tLabelID A) {
-    int Nj = SymToNi[A];
-    for (int i = 0; i < NiSize[Nj]; i++) {
-        int C = Ni[Nj][i];
-        for (int l = rFirst[C]; l <= rLast[C]; l++) {
-            grRule *rule = rules[l];
-            int D = rule->right[rule->rLength - 1]; // last right-hand side
-            int Nk = -1;
-            if (D != epsilon) { // might be epsilon
-                Nk = SymToNi[D];
-            }
-            int proceedTo = rule->rLength;
-            if (Nj == Nk) { // last symbol not processed
-                proceedTo--;
-            }
-            for (int k = 0; k < proceedTo; k++) {
-                int label = rule->right[k];
-                if (!this->isTerminalSym(label)) {
-                    countFA(label);
-                }
-            }
-        }
-    }
-}
-
-void *CFGtoFDAtranslator::countFaLeftRec(tLabelID A) {
-    int Nj = SymToNi[A];
-    for (int i = 0; i < NiSize[Nj]; i++) {
-        int C = Ni[Nj][i];
-        for (int l = rFirst[C]; l <= rLast[C]; l++) {
-            // need to detect whether this is a recursive method or not
-            grRule *rule = rules[l];
-            int D = rule->right[0]; // first right-hand side
-            int Nk = -1;
-            if (D != epsilon) {
-                Nk = SymToNi[D];
-            }
-            int k;
-            if (Nj != Nk) { // non-recursive
-                k = 0;
-            } else { // recursive
-                k = 1; // first one is in same Nj
-            }
-            for (; k < rule->rLength; k++) {
-                int label = rule->right[k];
-                if (!this->isTerminalSym(label)) {
-                    countFA(label);
-                }
-            }
-        }
-    }
 }
 
 void CFGtoFDAtranslator::statePruning(Model *htn, FA *pFa) {
@@ -1318,25 +982,41 @@ void CFGtoFDAtranslator::statePruning(Model *htn, FA *pFa) {
 //    }
 }
 
-#ifndef NDEBUG
-set<int> deletedBefore;
-#endif
+void CFGtoFDAtranslator::addRule(StdVectorFst *fst, int from, int label, int to, int costs) {
+    fst->AddArc(from, StdArc(label + 1, label + 1, 0, to));
+}
 
-void CFGtoFDAtranslator::cleanupSubFAs(int alpha) {
-//#ifndef NDEBUG
-//    assert (deletedBefore.find(alpha) == deletedBefore.end());
-//#endif
-//
-//    // cleanup fa cache
-//    subFANeededBy[alpha]--;
-//    if (subFANeededBy[alpha] == 0) {
-//        delete subDFAs.at(alpha);
-//        subDFAs.erase(subDFAs.find(alpha));
-//        subFANeededBy.erase(alpha);
-//#ifndef NDEBUG
-//        deletedBefore.insert(alpha);
-//#endif
-//    }
+int CFGtoFDAtranslator::nextState(StdVectorFst *fst) {
+    fst->AddState();
+    return fst->NumStates() - 1;
+}
+
+void CFGtoFDAtranslator::showDOT(StdVectorFst *fst) {
+    system("rm binary.fst");
+    fst->Write("binary.fst");
+    system("fstdraw binary.fst binary.dot"); //  --acceptor=true
+    system("xdot binary.dot &");
+}
+
+void CFGtoFDAtranslator::showDOT(StdVectorFst *fst, string *taskNames) {
+    ofstream myfile;
+    myfile.open("syms.txt");
+    myfile << "<eps> 0\n";
+    for(int i = 0; i < this->numSymbols; i++) {
+        myfile << taskNames[i] << " " << (i + 1) << "\n";
+    }
+    myfile.close();
+
+    system("rm binary.fst");
+    fst->Write("binary.fst");
+    system("fstdraw --acceptor=true --isymbols=syms.txt --osymbols=syms.txt binary.fst binary.dot");
+    system("xdot binary.dot &");
+}
+
+StdVectorFst *CFGtoFDAtranslator::getNewFA() {
+    StdVectorFst *fst = new StdVectorFst();
+    fst->SetProperties(kAcceptor, true);
+    return fst;
 }
 
 //

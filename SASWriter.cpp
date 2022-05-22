@@ -6,7 +6,7 @@
 #include <cassert>
 #include <fstream>
 
-void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
+void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName) {
     this->m = htn;
 
     ofstream os;
@@ -55,8 +55,8 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     os << "begin_variable\n";
     os << "var" << m->numVars << "\n";
     os << "-1\n";
-    os << fa->fst->NumStates() << "\n";
-    for (int i = 0; i < fa->fst->NumStates(); i++) {
+    os << fst->NumStates() << "\n";
+    for (int i = 0; i < fst->NumStates(); i++) {
         os << "Atom dfa(s" << i << ")\n";
     }
     os << "end_variable\n";
@@ -96,7 +96,7 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     }
 //    assert(fa->sInit.size() == 1);
 
-    os << fa->fst->Start() << "\n"; // initial value of automaton
+    os << fst->Start() << "\n"; // initial value of automaton
     os << "end_state\n";
 
     // write goal definition
@@ -111,8 +111,8 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     }
 //    assert(fa->sGoal.size() == 1);
     vector<int> goalStates;
-    for (int i = 0; i < fa->fst->NumStates(); i++) {
-        if (fa->fst->Final(i) == 0) {
+    for (int i = 0; i < fst->NumStates(); i++) {
+        if (fst->Final(i) == 0) {
             goalStates.push_back(i);
         }
     }
@@ -123,9 +123,9 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
     // count actions
     cout << "counting actions..." << endl;
     int numActions = 0;
-    for (StateIterator<StdVectorFst> siter(*fa->fst); !siter.Done(); siter.Next()) {
+    for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
         int state_id = siter.Value();
-        for (ArcIterator<StdFst> aiter(*fa->fst, state_id); !aiter.Done(); aiter.Next()) {
+        for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
             numActions++;
         }
     }
@@ -147,9 +147,9 @@ void SASWriter::write(Model *htn, FA *fa, string dName, string pName) {
 //    tLabelID a;
 //    while (fa->delta->fullIterNext(&from, &a, &to)) {
 //        assert((a < m->numActions) || (a == epsilon));
-    for (StateIterator<StdVectorFst> siter(*fa->fst); !siter.Done(); siter.Next()) {
+    for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
         int state_id = siter.Value();
-        for (ArcIterator<StdFst> aiter(*fa->fst, state_id); !aiter.Done(); aiter.Next()) {
+        for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
             const StdArc &arc = aiter.Value();
             int a = arc.ilabel - 1;
             assert(a < htn->numActions);
