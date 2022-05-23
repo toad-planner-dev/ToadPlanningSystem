@@ -653,6 +653,8 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 
     cout << "  - automaton has " << (int)fst->NumStates() << " states." << endl;
     StdVectorFst* fst2 = getNewFA();
+    cout << "- remove epsilons" << endl;
+    RmEpsilon(fst);
     cout << "- make deterministic" << endl;
     Determinize(*fst, fst2);
     delete fst;
@@ -664,6 +666,9 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
     reduction = 100.0 / start * (int)fst->NumStates();
     cout << "- reduced size of full automaton by " << fixed << setprecision(2) << (100.0 - reduction) << "%." << endl;
+
+    //Connect(fst);
+    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
 //    StdVectorFst* fst3 = getNewFA();
 //    ShortestPath(*fa->fst, fst3, 10);
 //    fa->fst = fst3;
@@ -678,9 +683,10 @@ StdVectorFst *CFGtoFDAtranslator::getFA(tLabelID alpha) {
     totalSubFAs++;
     StdVectorFst *fa = getNewFA();
     if (alpha == Epsilon) {
-        fa->AddStates(2);
+        fa->AddState();
+        fa->AddState();
         fa->SetStart(0);
-        fa->SetFinal(1);
+        fa->SetFinal(1, 0);
         addRule(fa, 0, epsilon, 1, 0);
     } else {
         int Nj = SymToNi[alpha];
@@ -700,7 +706,7 @@ StdVectorFst *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
     int s0 = nextState(fa);
     fa->SetStart(s0);
     int sF = nextState(fa);
-    fa->SetFinal(sF);
+    fa->SetFinal(sF, 0);
 
     for (int j = rFirst[A]; j <= rLast[A]; j++) {
 //          printRule(rules[j]);
@@ -728,7 +734,7 @@ StdVectorFst *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
     int s0 = nextState(fa);
     fa->SetStart(s0);
     int sF = nextState(fa);
-    fa->SetFinal(sF);
+    fa->SetFinal(sF, 0);
 
     map<int, int> symToState;
     symToState.insert({A, sF});
@@ -789,7 +795,7 @@ StdVectorFst * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
     int s0 = nextState(fa);
     fa->SetStart(s0);
     int sF = nextState(fa);
-    fa->SetFinal(sF);
+    fa->SetFinal(sF, 0);
 
     symToState.insert({A, s0});
 
@@ -845,7 +851,63 @@ StdVectorFst * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
     return fa;
 }
 
-void CFGtoFDAtranslator::statePruning(Model *htn, FA *pFa) {
+void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
+    const int numStates = fst->NumStates();
+    set<int>* inLabels = new set<int>[numStates];
+    for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
+        int state_id = siter.Value();
+        for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
+            const StdArc &arc = aiter.Value();
+            inLabels[arc.nextstate].insert(arc.ilabel - 1);
+        }
+    }
+    set<int>* pState = new set<int>;
+    set<int>* pTempState = new set<int>;
+    for (int state = 0; state < numStates; state++) {
+        pState->clear();
+        bool first = true;
+        if (!inLabels[state].empty()) {
+            for (int action : inLabels[state]) {
+                if (action == epsilon) {
+                    pState->clear();
+                    break;
+                } else {
+                    pTempState->clear();
+                    // preconditions that are not changed
+                    for (int i = 0; i < htn->numPrecs[action]; i++) {
+                        int prec = htn->precLists[action][i];
+                        pTempState->insert(prec);
+                    }
+                    // effects
+                    for (int i = 0; i < htn->numDels[action]; i++) {
+                        int del = htn->delLists[action][i];
+                        pTempState->erase(del);
+                    }
+                    for (int i = 0; i < htn->numAdds[action]; i++) {
+                        int add = htn->addLists[action][i];
+                        pTempState->insert(add);
+                    }
+                    if (first) {
+                        first = false;
+                        pState->insert(pTempState->begin(), pTempState->end());
+                    } else { // intersect
+                        for (auto iter = pState->begin(); iter != pState->end();) {
+                            int p = *iter;
+                            if (pTempState->find(p) == pTempState->end()) {
+                                iter = pState->erase(iter);
+                            } else {
+                                ++iter;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!pState->empty()) {
+//                fst->()
+
+            }
+        }
+    }
 //    pFa->delta->ensureBW(); // label -> (to -> from)
 //    unordered_map<tStateID, set<int>*> pStates; // partial state that holds with certainty
 //    for (auto l : *pFa->delta->backward) {

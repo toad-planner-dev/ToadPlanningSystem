@@ -108,7 +108,7 @@ void FA::makeInit(int state) {
 }
 
 void FA::makeFinal(int state) {
-    fst->SetFinal(state);
+    fst->SetFinal(state, 0);
 }
 
 //void FA::writeDfadHeuristic(string &file) {
