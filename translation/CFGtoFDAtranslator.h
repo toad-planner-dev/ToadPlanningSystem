@@ -119,7 +119,7 @@ public:
     StdVectorFst *getFaLeftRec(tLabelID  A);
 
 
-    void statePruning(Model *htn, FA *pFa);
+    void statePruning(Model *htn, StdVectorFst *pFa);
 
 
     void addRule(StdVectorFst *fst, int from, int label, int to, int costs);

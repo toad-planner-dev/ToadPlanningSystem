@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.17)
 project(TOAD)
 
 set(CMAKE_CXX_STANDARD 17)
+#set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+#set(BUILD_SHARED_LIBS OFF)
+#set(CMAKE_EXE_LINKER_FLAGS "-static")
 
 add_executable(toad main.cpp
         htnModel/Model.cpp htnModel/ProgressionNetwork.cpp
@@ -26,4 +29,4 @@ add_executable(toad main.cpp
         dfaLib/TransitionContainer.cpp dfaLib/TransitionContainer.h
         SASWriter.cpp SASWriter.h)
 
-target_link_libraries (toad /home/dh/programme/OpenFST/openfst-1.8.2/src/lib/.libs/libfst.so)
+target_link_libraries (toad libfst.so)
