@@ -3,6 +3,8 @@ project(TOAD)
 
 set(CMAKE_CXX_STANDARD 17)
 
+INCLUDE_DIRECTORIES(/mnt/data_server/hoeller/toad3/code/libfst/share/include)
+
 add_executable(toad main.cpp
         htnModel/Model.cpp htnModel/ProgressionNetwork.cpp
         translation/CFGtoFDAtranslator.cpp translation/CFGtoFDAtranslator.h
@@ -26,4 +28,4 @@ add_executable(toad main.cpp
         dfaLib/TransitionContainer.cpp dfaLib/TransitionContainer.h
         SASWriter.cpp SASWriter.h)
 
-target_link_libraries (toad /home/dh/programme/OpenFST/openfst-1.8.2/src/lib/.libs/libfst.so)
+target_link_libraries (toad  /mnt/data_server/hoeller/toad3/code/libfst/openfst-1.8.2/src/lib/.libs/libfst.so)
