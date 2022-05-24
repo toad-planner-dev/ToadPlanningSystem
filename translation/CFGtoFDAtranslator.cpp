@@ -619,12 +619,16 @@ void CFGtoFDAtranslator::printRules() {
 // *************************************************
 
 bool reduceSubFAs = true;
-StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
-    this->numNonTerminals = htn->numTasks - htn->numActions;
+bool reduceFinalFA = false;
+bool statebasedPruning = false;
+bool removeEpsilon = false;
 
+StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
+    timeval tp;
     cout << "- building sub-automata..." << endl;
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
     double reduction = 0;
+    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     for (int i = this->numTerminals; i < this->numSymbols; i++) {
         StdVectorFst* fst = getFA(i);
         if (reduceSubFAs) {
@@ -636,12 +640,20 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             Minimize(fst);
             reduction += 100.0 / start * (int) fst->NumStates();
             if (i == this->numSymbols - 1) {
-                reduction /= (double) (numSymbols - numTerminals);
-                cout << "  - reduced size of sub-automata on average by " << fixed << setprecision(2) << (100.0 - reduction) << "%." << endl;
+                if (reduceSubFAs) {
+                    reduction /= (double) (numSymbols - numTerminals);
+                    cout << "  - [avSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
+                } else {
+                    cout << "  - optimization of sub-automata disabled." << endl;
+                }
             }
         }
+        //showDOT(fst, htn->taskNames);
         label_fst_pairs.emplace_back(i + 1, fst);
     }
+    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timeBuildSubFAs=" << (endT - startT) << "]" << endl;
+    startT = endT;
 
     cout << "- combining sub-automata..." << endl;
     StdVectorFst* fst = getNewFA();
@@ -649,32 +661,58 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     for (auto subFA : label_fst_pairs) {
         delete subFA.second;
     }
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timeBuildFA=" << (endT - startT) << "]" << endl;
+    startT = endT;
+
     int start = (int)fst->NumStates();
+    cout << "  - automaton has " << (int) fst->NumStates() << " states [faFullStates=" << (int) fst->NumStates() << "]." << endl;
+    if (statebasedPruning || removeEpsilon) {
+        cout << "- remove epsilons" << endl;
+        RmEpsilon(fst);
+        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeRemoveEpsilon=" << (endT - startT) << "]" << endl;
+        startT = endT;
+    }
+    if (reduceFinalFA || statebasedPruning) {
+        cout << "- make deterministic" << endl;
+        StdVectorFst *fst2 = getNewFA();
+        Determinize(*fst, fst2);
+        delete fst;
+        fst = fst2;
+        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeDeterminize=" << (endT - startT) << "]" << endl;
+        startT = endT;
 
-    cout << "  - automaton has " << (int)fst->NumStates() << " states." << endl;
-    StdVectorFst* fst2 = getNewFA();
-    cout << "- remove epsilons" << endl;
-    RmEpsilon(fst);
-    cout << "- make deterministic" << endl;
-    Determinize(*fst, fst2);
-    delete fst;
-    fst = fst2;
-
-    cout << "  - automaton has " << (int)fst->NumStates() << " states." << endl;
-    cout << "- minimize automaton" << endl;
-    Minimize(fst);
-    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
-    reduction = 100.0 / start * (int)fst->NumStates();
-    cout << "- reduced size of full automaton by " << fixed << setprecision(2) << (100.0 - reduction) << "%." << endl;
-
-    //Connect(fst);
-    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
+        cout << "  - automaton has " << (int) fst->NumStates() << " states." << endl;
+        cout << "- minimize automaton" << endl;
+        Minimize(fst);
+        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
+        reduction = 100.0 / start * (int) fst->NumStates();
+        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeMinimize=" << (endT - startT) << "]" << endl;
+        startT = endT;
+    }
 //    StdVectorFst* fst3 = getNewFA();
 //    ShortestPath(*fa->fst, fst3, 10);
 //    fa->fst = fst3;
 //    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
 //    showDOT(fst, htn->taskNames);
 //    showDOT(fst);
+    if (statebasedPruning) {
+        cout << "- state-based pruning" << endl;
+        statePruning(htn, fst);
+        Connect(fst);
+        Minimize(fst);
+        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
+        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeStateBasedPruning=" << (endT - startT) << "]" << endl;
+        startT = endT;
+    }
+    if (reduceFinalFA || statebasedPruning) {
+        cout << "- [finalSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
+    }
+//    showDOT(fst, htn->taskNames);
     return fst;
 }
 
@@ -863,16 +901,17 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
     }
     set<int>* pState = new set<int>;
     set<int>* pTempState = new set<int>;
+    vector<int> arcs;
     for (int state = 0; state < numStates; state++) {
+        if (state == fst->Start()) {
+            continue;
+        }
         pState->clear();
         bool first = true;
         if (!inLabels[state].empty()) {
             for (int action : inLabels[state]) {
-                if (action == epsilon) {
-                    pState->clear();
-                    break;
-                } else {
-                    pTempState->clear();
+                pTempState->clear();
+                if (action != epsilon) {
                     // preconditions that are not changed
                     for (int i = 0; i < htn->numPrecs[action]; i++) {
                         int prec = htn->precLists[action][i];
@@ -887,24 +926,52 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
                         int add = htn->addLists[action][i];
                         pTempState->insert(add);
                     }
-                    if (first) {
-                        first = false;
-                        pState->insert(pTempState->begin(), pTempState->end());
-                    } else { // intersect
-                        for (auto iter = pState->begin(); iter != pState->end();) {
-                            int p = *iter;
-                            if (pTempState->find(p) == pTempState->end()) {
-                                iter = pState->erase(iter);
-                            } else {
-                                ++iter;
-                            }
+                }
+                if (first) {
+                    first = false;
+                    pState->insert(pTempState->begin(), pTempState->end());
+                } else { // intersect
+                    for (auto iter = pState->begin(); iter != pState->end();) {
+                        int p = *iter;
+                        if (pTempState->find(p) == pTempState->end()) {
+                            iter = pState->erase(iter);
+                        } else {
+                            ++iter;
                         }
                     }
                 }
+
             }
             if (!pState->empty()) {
-//                fst->()
-
+                arcs.clear();
+                for (ArcIterator<StdFst> aiter(*fst, state); !aiter.Done(); aiter.Next()) {
+                    const StdArc &arc = aiter.Value();
+                    int action = arc.ilabel - 1;
+                    bool applicable = true;
+                    for (int i = 0; i < htn->numPrecs[action]; i++) {
+                        int p = htn->precLists[action][i];
+                        int var = htn->bitToVar[p];
+                        for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
+                            if ((j != p) && (pState->find(j) != pState->end())) {
+                                applicable = false;
+                                break;
+                            }
+                        }
+                        if (!applicable) {
+                            break;
+                        }
+                    }
+                    if (applicable) {
+                        arcs.push_back(arc.ilabel - 1);
+                        arcs.push_back(arc.nextstate);
+                    } //else {
+                      //  cout << "PRUNED!!!"<< endl;
+                    //}
+                }
+                fst->DeleteArcs(state);
+                for (int i = 0; i < arcs.size(); i+=2) {
+                    addRule(fst, state, arcs[i], arcs[i + 1], 0);
+                }
             }
         }
     }

@@ -28,4 +28,5 @@ add_executable(toad main.cpp
         dfaLib/TransitionContainer.cpp dfaLib/TransitionContainer.h
         SASWriter.cpp SASWriter.h)
 
-target_link_libraries (toad  /mnt/data_server/hoeller/toad3/code/libfst/openfst-1.8.2/src/lib/.libs/libfst.so)
+target_link_libraries (toad /mnt/data_server/hoeller/toad3/code/libfst/openfst-1.8.2/src/lib/.libs/libfst.so)
+#target_link_libraries (toad libfst.so)

@@ -29,9 +29,7 @@ struct grRule {
 
 
 class CFGtoFDAtranslator {
-    int reuses = 0;
     int totalSubFAs = 0;
-    int numNonTerminals;
     map<tLabelID, FA*> subDFAs;
 
     unordered_map<int, int> subFANeededBy;
