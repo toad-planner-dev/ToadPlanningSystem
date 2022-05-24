@@ -51,12 +51,28 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
         os << "end_variable\n";
     }
 
+    // check number of final states
+    vector<int> dfaGoalStates;
+    for (int i = 0; i < fst->NumStates(); i++) {
+        if (fst->Final(i) == 0) {
+            dfaGoalStates.push_back(i);
+        }
+    }
+    int numDFAStates = fst->NumStates();
+    int singleDFAGoalState = dfaGoalStates[0];;
+    int additionalActions = 0;
+    if (dfaGoalStates.size() > 1) {
+        singleDFAGoalState = numDFAStates; // the new one
+        numDFAStates++;
+        additionalActions = dfaGoalStates.size(); // need new epsilon transitions
+    }
+
     // write dfa states
     os << "begin_variable\n";
     os << "var" << m->numVars << "\n";
     os << "-1\n";
-    os << fst->NumStates() << "\n";
-    for (int i = 0; i < fst->NumStates(); i++) {
+    os << numDFAStates << "\n";
+    for (int i = 0; i < numDFAStates; i++) {
         os << "Atom dfa(s" << i << ")\n";
     }
     os << "end_variable\n";
@@ -94,8 +110,6 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
     for (int i = 0; i < m->numVars; i++) {
         os << s0[i] << "\n";
     }
-//    assert(fa->sInit.size() == 1);
-
     os << fst->Start() << "\n"; // initial value of automaton
     os << "end_state\n";
 
@@ -109,19 +123,11 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
             var++;
         os << var << " " << (val - m->firstIndex[var]) << "\n";
     }
-//    assert(fa->sGoal.size() == 1);
-    vector<int> goalStates;
-    for (int i = 0; i < fst->NumStates(); i++) {
-        if (fst->Final(i) == 0) {
-            goalStates.push_back(i);
-        }
-    }
-    assert(goalStates.size() == 1);
-    os << m->numVars << " " << goalStates[0]  << "\n"; // reach final state of automaton
+    os << m->numVars << " " << singleDFAGoalState << "\n"; // reach final state of automaton
     os << "end_goal\n";
 
     // count actions
-    cout << "counting actions..." << endl;
+    cout << "- counting actions...";
     int numActions = 0;
     for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
         int state_id = siter.Value();
@@ -130,6 +136,7 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
         }
     }
     cout << "done." << endl;
+    numActions += additionalActions;
     os << numActions << "\n";
 
     // generate SAS+ representation
@@ -141,7 +148,6 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
     getSASRepresentation(isBoolean, prev, numPrev, eff, numEff);
 
     // write actions
-    int check = 0;
 //    fa->delta->fullIterInit();
 //    tStateID from, to;
 //    tLabelID a;
@@ -157,7 +163,6 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
             int to = arc.nextstate;
             if (a == -1) { // epsilon
                 assert (from != to);
-                check++; // count actions actually written
                 os << "begin_operator\n";
                 os << "epsilon\n";
                 os << 0 << "\n"; // prevail constraints
@@ -169,7 +174,6 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
             }
 
             // write everything
-            check++; // count actions actually written
             int numPrevail = numPrev[a] / 2;
             int numEffect = (numEff[a] / 4);
             if (from != to) {
@@ -197,9 +201,18 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
             os << "end_operator\n";
         }
     }
+    if (dfaGoalStates.size() > 1) {
+        for (int orgDFAGoal: dfaGoalStates) {
+            os << "begin_operator\n";
+            os << "epsilon\n";
+            os << 0 << "\n"; // prevail constraints
+            os << 1 << "\n"; // effects
+            os << 0 << " " << m->numVars << " " << orgDFAGoal << " " << singleDFAGoalState << "\n";
+            os << 1 << "\n"; // action costs, 0 means unicosts
+            os << "end_operator\n";
+        }
+    }
     os << 0 << "\n";
-//    assert(check == numActions);
-//    os << "NUMACTIONS == " << numActions << "\n";
     os.close();
 }
 
