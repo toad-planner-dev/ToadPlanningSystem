@@ -51,12 +51,11 @@ int main(int argc, char *argv[]) {
     */
     gettimeofday(&tp, NULL);
     long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    long startTotal = startT;
     cout << "Reading HTN model from file \"" << s << "\" ... " << endl;
     Model *htn = new Model();
     htn->filename = s;
     htn->read(s);
-    htn->calcSCCs();
+//    htn->calcSCCs();
     gettimeofday(&tp, NULL);
 
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
@@ -72,24 +71,24 @@ int main(int argc, char *argv[]) {
     to2s->numTerminals = htn->numActions;
 
     // initialize Ni sets
-    to2s->NumNis = htn->numCyclicSccs;
-    to2s->NiSize = new int[htn->numCyclicSccs];
-    to2s->Ni = new int *[htn->numCyclicSccs];
-    to2s->SymToNi = new int[to2s->numSymbols];
-    for (int i = 0; i < to2s->numSymbols; i++) {
-        to2s->SymToNi[i] = -1; // init as non-recursive
-    }
-
-    cout << "- collecting SCC data" << endl;
-    for (int k = 0; k < htn->numCyclicSccs; k++) {
-        int scc = htn->sccsCyclic[k];
-        to2s->NiSize[k] = htn->sccSize[scc];
-        to2s->Ni[k] = new int[to2s->NiSize[k]];
-        for (int j = 0; j < htn->sccSize[scc]; j++) {
-            to2s->Ni[k][j] = htn->sccToTasks[scc][j];
-            to2s->SymToNi[to2s->Ni[k][j]] = k;
-        }
-    }
+//    to2s->NumNis = htn->numCyclicSccs;
+//    to2s->NiSize = new int[htn->numCyclicSccs];
+//    to2s->Ni = new int *[htn->numCyclicSccs];
+//    to2s->SymToNi = new int[to2s->numSymbols];
+//    for (int i = 0; i < to2s->numSymbols; i++) {
+//        to2s->SymToNi[i] = -1; // init as non-recursive
+//    }
+//
+//    cout << "- collecting SCC data" << endl;
+//    for (int k = 0; k < htn->numCyclicSccs; k++) {
+//        int scc = htn->sccsCyclic[k];
+//        to2s->NiSize[k] = htn->sccSize[scc];
+//        to2s->Ni[k] = new int[to2s->NiSize[k]];
+//        for (int j = 0; j < htn->sccSize[scc]; j++) {
+//            to2s->Ni[k][j] = htn->sccToTasks[scc][j];
+//            to2s->SymToNi[to2s->Ni[k][j]] = k;
+//        }
+//    }
 
     cout << "- adding methods as grammar rules" << endl;
     for (int iM = 0; iM < htn->numMethods; iM++) {
@@ -98,6 +97,7 @@ int main(int argc, char *argv[]) {
     }
     cout << "Analysing rules" << endl;
     to2s->initDataStructures(htn->initialTask);
+    to2s->calcSCCs(htn->initialTask);
     to2s->analyseRules(true);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timeHtnToGrammar=" << (endT - startT) << "]" << endl;
