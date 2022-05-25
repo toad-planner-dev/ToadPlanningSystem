@@ -43,10 +43,11 @@ class CFGtoFDAtranslator {
     void determineRuleRecursion(grRule *r);
 
     void sortRules();
-
+//    StdVectorFst *fst myCombine()
 public:
     virtual ~CFGtoFDAtranslator();
 
+    vector<int> taskToScc;
     // consts naming recursions of Ni
     const int recUnknown = 0;
     const int recLeft = 1;

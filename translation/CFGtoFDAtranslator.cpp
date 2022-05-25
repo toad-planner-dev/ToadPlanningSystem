@@ -456,7 +456,11 @@ void CFGtoFDAtranslator::calcSCCs(int tinit) {
         SymToNi[i] = -1;
     }
 
-    tarjan(tinit); // this works only if there is a single initial task and all tasks are connected to to that task
+    for (int i = 0; i < numSymbols; i++) {
+        taskToScc.push_back(-1);
+    }
+
+    tarjan(tinit); // this works only if there is a single initial task and all tasks are connected to that task
 
     sccSize = new int[numSCCs];
     for (int i = 0; i < numSCCs; i++)
@@ -590,6 +594,7 @@ void CFGtoFDAtranslator::tarjan(int v) {
             S->pop_back();
             containedS[v2] = false;
             SymToNi[v2] = numSCCs;
+            taskToScc[v2] = numSCCs;
         } while (v2 != v);
         numSCCs++;
     }
@@ -627,93 +632,188 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     timeval tp;
     cout << "- building sub-automata..." << endl;
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
-    double reduction = 0;
-    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    for (int i = this->numTerminals; i < this->numSymbols; i++) {
-        StdVectorFst* fst = getFA(i);
-        if (reduceSubFAs) {
-            int start = (int) fst->NumStates();
+
+    //cout << "init " << htn->initialTask << endl;
+    int maxScc = -1;
+    unordered_map<int, vector<int>> sccToTask;
+    for (int i = 0; i < numSymbols; i++) {
+//        cout << i <<" -> " << taskToScc[i] << endl;
+        int scc = taskToScc[i];
+        if (scc > maxScc) {
+            maxScc = scc;
+        }
+        sccToTask[scc].push_back(i);
+    }
+//    cout << "scc "  << numSCCs << endl;
+
+//    int initalTask = sccToTask[maxScc][0];
+//    assert(initalTask == htn->initialTask);
+//    StdVectorFst* fst = getFA(initalTask);
+
+    StdVectorFst* fstInit;
+    double output = 0;
+    cout << " 0%" << endl;
+//    cout << "SCC:";
+    for (int i = 0; i <= maxScc; i++) {
+//        cout << " " << i;
+        for (int task : sccToTask[i]) {
+//            cout << task << endl;
+            if (task < htn->numActions)
+                continue;
+            StdVectorFst* fst = getFA(task);
             StdVectorFst *fst2 = getNewFA();
             Determinize(*fst, fst2);
             delete fst;
             fst = fst2;
             Minimize(fst);
-            reduction += 100.0 / start * (int) fst->NumStates();
-            if (i == this->numSymbols - 1) {
-                if (reduceSubFAs) {
-                    reduction /= (double) (numSymbols - numTerminals);
-                    cout << "  - [avSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
-                } else {
-                    cout << "  - optimization of sub-automata disabled." << endl;
-                }
+            //showDOT(fst);
+            label_fst_pairs.emplace_back(task + 1, fst);
+
+            StdVectorFst* fstFull = getNewFA();
+            Replace(label_fst_pairs, fstFull, task + 1, true);
+            fst2 = getNewFA();
+            Determinize(*fstFull, fst2);
+            delete fstFull;
+            fstFull = fst2;
+            Minimize(fstFull);
+            RmEpsilon(fstFull);
+
+            label_fst_pairs.erase(label_fst_pairs.end());
+            label_fst_pairs.emplace_back(task + 1, fstFull);
+            if (task == htn->initialTask) {
+                fstInit = fstFull;
             }
+            //showDOT(fstFull);
         }
-        //showDOT(fst, htn->taskNames);
-        label_fst_pairs.emplace_back(i + 1, fst);
+        double current = 100.0/maxScc * i;
+        if (current > (output + 10)) {
+            cout << fixed << setprecision(0) << current << "% " << endl;
+            output += 10;
+        }
     }
+    cout << "100%" << endl;
+//    showDOT(fstInit);
+    int start = (int)fstInit->NumStates();
+    cout << "  - automaton has " << (int) fstInit->NumStates() << " states [faFullStates=" << (int) fstInit->NumStates() << "]." << endl;
+    return fstInit;
+
+//    unordered_map<int, StdVectorFst*> subFAs;
+//    double reduction = 0;
+    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//    for (int i = this->numTerminals; i < this->numSymbols; i++) {
+//        StdVectorFst* fst = getFA(i);
+//        if (reduceSubFAs) {
+//            int start = (int) fst->NumStates();
+//            StdVectorFst *fst2 = getNewFA();
+//            Determinize(*fst, fst2);
+//            delete fst;
+//            fst = fst2;
+//            Minimize(fst);
+//            reduction += 100.0 / start * (int) fst->NumStates();
+//            if (i == this->numSymbols - 1) {
+//                if (reduceSubFAs) {
+//                    reduction /= (double) (numSymbols - numTerminals);
+//                    cout << "  - [avSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
+//                } else {
+//                    cout << "  - optimization of sub-automata disabled." << endl;
+//                }
+//            }
+//        }
+//        //showDOT(fst, htn->taskNames);
+//        label_fst_pairs.emplace_back(i + 1, fst);
+//        subFAs[i + 1] = fst;
+//    }
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "- [timeBuildSubFAs=" << (endT - startT) << "]" << endl;
-    startT = endT;
-
-    cout << "- combining sub-automata..." << endl;
-    StdVectorFst* fst = getNewFA();
-    Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
-    for (auto subFA : label_fst_pairs) {
-        delete subFA.second;
-    }
-    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "- [timeBuildFA=" << (endT - startT) << "]" << endl;
-    startT = endT;
-
-    int start = (int)fst->NumStates();
-    cout << "  - automaton has " << (int) fst->NumStates() << " states [faFullStates=" << (int) fst->NumStates() << "]." << endl;
-    if (statebasedPruning || removeEpsilon) {
-        cout << "- remove epsilons" << endl;
-        RmEpsilon(fst);
-        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << "- [timeRemoveEpsilon=" << (endT - startT) << "]" << endl;
-        startT = endT;
-    }
-    if (reduceFinalFA || statebasedPruning) {
-        cout << "- make deterministic" << endl;
-        StdVectorFst *fst2 = getNewFA();
-        Determinize(*fst, fst2);
-        delete fst;
-        fst = fst2;
-        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << "- [timeDeterminize=" << (endT - startT) << "]" << endl;
-        startT = endT;
-
-        cout << "  - automaton has " << (int) fst->NumStates() << " states." << endl;
-        cout << "- minimize automaton" << endl;
-        Minimize(fst);
-        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
-        reduction = 100.0 / start * (int) fst->NumStates();
-        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << "- [timeMinimize=" << (endT - startT) << "]" << endl;
-        startT = endT;
-    }
-//    StdVectorFst* fst3 = getNewFA();
-//    ShortestPath(*fa->fst, fst3, 10);
-//    fa->fst = fst3;
-//    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
-//    showDOT(fst, htn->taskNames);
-//    showDOT(fst);
-    if (statebasedPruning) {
-        cout << "- state-based pruning" << endl;
-        statePruning(htn, fst);
-        Connect(fst);
-        Minimize(fst);
-        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
-        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << "- [timeStateBasedPruning=" << (endT - startT) << "]" << endl;
-        startT = endT;
-    }
-    if (reduceFinalFA || statebasedPruning) {
-        cout << "- [finalSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
-    }
-//    showDOT(fst, htn->taskNames);
-    return fst;
+//    cout << "- [timeBuildSubFAs=" << (endT - startT) << "]" << endl;
+//    startT = endT;
+//
+//    cout << "- combining sub-automata..." << endl;
+//    set<int> include;
+//    for (int i = this->numTerminals; i < this->numSymbols; i++) {
+//        StdVectorFst *fst = subFAs[i];
+//        bool onlyPrim = true;
+//        for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
+//            int state_id = siter.Value();
+//            for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
+//                const StdArc &arc = aiter.Value();
+//                const int action = arc.ilabel;
+//                if (action >= htn->numActions) {
+//                    onlyPrim = false;
+//                    break;
+//                }
+//            }
+//            if (!onlyPrim) {
+//                break;
+//            }
+//        }
+//        if (onlyPrim) {
+//            include.insert(i);
+//        }
+//    }
+//    // now include contains nonterminals mapped to solely primitives
+////    while (true) {
+////        label_fst_pairs.clear();
+////
+////
+////    }
+//    StdVectorFst* fst = getNewFA();
+//    Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
+//    for (auto subFA : label_fst_pairs) {
+//        delete subFA.second;
+//    }
+//    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//    cout << "- [timeBuildFA=" << (endT - startT) << "]" << endl;
+//    startT = endT;
+//
+//    int start = (int)fst->NumStates();
+//    cout << "  - automaton has " << (int) fst->NumStates() << " states [faFullStates=" << (int) fst->NumStates() << "]." << endl;
+//    if (statebasedPruning || removeEpsilon) {
+//        cout << "- remove epsilons" << endl;
+//        RmEpsilon(fst);
+//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//        cout << "- [timeRemoveEpsilon=" << (endT - startT) << "]" << endl;
+//        startT = endT;
+//    }
+//    if (reduceFinalFA || statebasedPruning) {
+//        cout << "- make deterministic" << endl;
+//        StdVectorFst *fst2 = getNewFA();
+//        Determinize(*fst, fst2);
+//        delete fst;
+//        fst = fst2;
+//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//        cout << "- [timeDeterminize=" << (endT - startT) << "]" << endl;
+//        startT = endT;
+//
+//        cout << "  - automaton has " << (int) fst->NumStates() << " states." << endl;
+//        cout << "- minimize automaton" << endl;
+//        Minimize(fst);
+//        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
+////        reduction = 100.0 / start * (int) fst->NumStates();
+//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//        cout << "- [timeMinimize=" << (endT - startT) << "]" << endl;
+//        startT = endT;
+//    }
+////    StdVectorFst* fst3 = getNewFA();
+////    ShortestPath(*fa->fst, fst3, 10);
+////    fa->fst = fst3;
+////    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
+////    showDOT(fst, htn->taskNames);
+////    showDOT(fst);
+//    if (statebasedPruning) {
+//        cout << "- state-based pruning" << endl;
+//        statePruning(htn, fst);
+//        Connect(fst);
+//        Minimize(fst);
+//        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
+//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//        cout << "- [timeStateBasedPruning=" << (endT - startT) << "]" << endl;
+//        startT = endT;
+//    }
+////    if (reduceFinalFA || statebasedPruning) {
+////        cout << "- [finalSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
+////    }
+////    showDOT(fst, htn->taskNames);
+    return nullptr;
 }
 
 StdVectorFst *CFGtoFDAtranslator::getFA(tLabelID alpha) {
