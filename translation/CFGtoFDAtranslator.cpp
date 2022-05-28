@@ -706,6 +706,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
+    cout << "- automaton has " << (int) fstInit->NumStates() << " states [faFinalStates=" << (int) fstInit->NumStates() << "]." << endl;
     startT = endT;
 
 //    showDOT(fstInit);
