@@ -8,6 +8,8 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
+#include "../utils/IntPairHeap.h"
+#include <sys/time.h>
 
 void CFGtoFDAtranslator::addRule(vector<int> *r) {
     grRule *r2 = new grRule();
@@ -636,6 +638,9 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     //cout << "init " << htn->initialTask << endl;
     int maxScc = -1;
     unordered_map<int, vector<int>> sccToTask;
+    gettimeofday(&tp, NULL);
+    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    long endT;
     for (int i = 0; i < numSymbols; i++) {
 //        cout << i <<" -> " << taskToScc[i] << endl;
         int scc = taskToScc[i];
@@ -652,7 +657,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 
     StdVectorFst* fstInit;
     double output = 0;
-    cout << " 0%" << endl;
+    cout << "  0%" << endl;
 //    cout << "SCC:";
     for (int i = 0; i <= maxScc; i++) {
 //        cout << " " << i;
@@ -666,7 +671,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             delete fst;
             fst = fst2;
             Minimize(fst);
-            //showDOT(fst);
+//            showDOT(fst);
             label_fst_pairs.emplace_back(task + 1, fst);
 
             StdVectorFst* fstFull = getNewFA();
@@ -687,19 +692,102 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
         }
         double current = 100.0/maxScc * i;
         if (current > (output + 10)) {
-            cout << fixed << setprecision(0) << current << "% " << endl;
+            gettimeofday(&tp, NULL);
+            endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+            cout << " " << fixed << setprecision(0) << current << "% ["<< fixed << setprecision(2) << (endT - startT) << "]" << endl;
             output += 10;
         }
     }
-    cout << "100%" << endl;
+    for (auto p : label_fst_pairs) {
+        if (p.first != (htn->initialTask + 1)) {
+            delete p.second;
+        }
+    }
+    gettimeofday(&tp, NULL);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
+    startT = endT;
+
 //    showDOT(fstInit);
-    int start = (int)fstInit->NumStates();
-    cout << "  - automaton has " << (int) fstInit->NumStates() << " states [faFullStates=" << (int) fstInit->NumStates() << "]." << endl;
+//    int start = (int)fstInit->NumStates();
+//    cout << "  - automaton has " << (int) fstInit->NumStates() << " states [faFullStates=" << (int) fstInit->NumStates() << "]." << endl;
+//
+//    //ArcMap(fstInit, RmWeightMapper<StdArc>());
+//    showDOT(fstInit);
+//    vector<TropicalWeightTpl<float>>* dist = new vector<TropicalWeightTpl<float>>();
+//    ShortestDistance(*fstInit, dist, true);
+//    for (int i = 0; i < dist->size(); i++) {
+//        cout << i << " " <<fixed << setprecision(2) <<  dist->at(i).Value() << endl;
+//    }
+
+    cout << "Creating heuristic lookup table" << endl;
+    int numStates = fstInit->NumStates();
+    set<int> final;
+    StdVectorFst* fstRev = getNewFA();
+    for (int i = 0; i < numStates; i++) {
+        fstRev->AddState();
+    }
+    for (StateIterator<StdVectorFst> siter(*fstInit); !siter.Done(); siter.Next()) {
+        int state_id = siter.Value();
+        if(fstInit->Final(state_id) == 0) {
+            final.insert(state_id);
+        }
+        for (ArcIterator<StdFst> aiter(*fstInit, state_id); !aiter.Done(); aiter.Next()) {
+            const StdArc &arc = aiter.Value();
+            addRule(fstRev,arc.nextstate, arc.ilabel, state_id, 0);
+        }
+    }
+//    showDOT(fstRev);
+    int* hVals = new int[numStates];
+    for (int i = 0; i < numStates; i++) {
+        hVals[i] = INT_MAX;
+    }
+    IntPairHeap heap(1000);
+    for(int sF : final) {
+        heap.add(0, sF);
+    }
+    while (!heap.isEmpty()) {
+        int costs = heap.topKey();
+        int state = heap.topVal();
+        heap.pop();
+        if (hVals[state] <= costs) {
+            continue;
+        }
+        hVals[state] = costs;
+        for (ArcIterator<StdFst> aiter(*fstRev, state); !aiter.Done(); aiter.Next()) {
+            const StdArc &arc = aiter.Value();
+            int newState = arc.nextstate;
+            int arcCosts = 1;
+            if (arc.ilabel == 0) {
+                arcCosts = 0;
+            }
+            int newCosts = costs + arcCosts;
+            if (newCosts < hVals[newState]) {
+                heap.add(newCosts, newState);
+            }
+        }
+    }
+//    for (int i = 0; i < numStates; i++) {
+//        cout << i << " " << hVals[i] << endl;
+//    }
+
+    ofstream hfile;
+    hfile.open("dfad.heuristic");
+    hfile << numStates << "\n";
+    for (int i = 0; i < numStates; i++) {
+        hfile << hVals[i] << "\n";
+    }
+    delete hVals;
+    hfile.close();
+    delete fstRev;
+    gettimeofday(&tp, NULL);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [hTable=" << (endT - startT) << "]" << endl;
     return fstInit;
 
 //    unordered_map<int, StdVectorFst*> subFAs;
 //    double reduction = 0;
-    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 //    for (int i = this->numTerminals; i < this->numSymbols; i++) {
 //        StdVectorFst* fst = getFA(i);
 //        if (reduceSubFAs) {
@@ -723,7 +811,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 //        label_fst_pairs.emplace_back(i + 1, fst);
 //        subFAs[i + 1] = fst;
 //    }
-    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+//    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 //    cout << "- [timeBuildSubFAs=" << (endT - startT) << "]" << endl;
 //    startT = endT;
 //
