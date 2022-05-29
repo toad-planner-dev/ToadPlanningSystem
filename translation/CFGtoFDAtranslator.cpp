@@ -724,8 +724,9 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     if (statebasedPruning) {
         int startState = (int) fstInit->NumStates();
         cout << "State-based Pruning" << endl;
-        statePruning(htn, fstInit);
-//         Connect(fstInit);
+//        statePruning(htn, fstInit);
+        statePruning2(htn, fstInit);
+//        Connect(fstInit);
         Minimize(fstInit);
         int endState = (int) fstInit->NumStates();
         double reduction = (100.0 / (double) startState * (double) endState);
@@ -1088,60 +1089,154 @@ StdVectorFst * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
     return fa;
 }
 
+void CFGtoFDAtranslator::statePruning2(Model *htn, StdVectorFst *fst) {
+    cout << "- expensive state-based pruning" << endl;
+//    showDOT(fst);
+    const int numStates = fst->NumStates();
+    // initial one dr state per dfa state
+    vector<bool> *drState = new vector<bool>[numStates];
+    for (int i = 0; i < numStates; i++) {
+        for (int j = 0; j < htn->numStateBits; j++) {
+            drState[i].push_back(false);
+        }
+    }
+    for (int i = 0; i < htn->s0Size; i++) {
+        int f = htn->s0List[i];
+        drState[0][f] = true;
+    }
+
+    vector<int> fringe;
+    set<int> inFringe;
+    fringe.push_back(0);
+    inFringe.insert(0);
+    while (!fringe.empty()) {
+        int s = fringe.back();
+        fringe.pop_back();
+        inFringe.erase(s);
+        for (ArcIterator<StdFst> aiter(*fst, s); !aiter.Done(); aiter.Next()) {
+            const StdArc &arc = aiter.Value();
+            int a = arc.ilabel - 1;
+            int s2 = arc.nextstate;
+            bool applicable = true;
+            for (int i = 0; i < htn->numPrecs[a]; i++) {
+                int f = htn->precLists[a][i];
+                if (!drState[s][f]) {
+                    applicable = false;
+                    break;
+                }
+            }
+            bool changed = false;
+            if (applicable) {
+                for (int i = 0; i < htn->numAdds[a]; i++) {
+                    int f = htn->addLists[a][i];
+                    if (!drState[s2][f]) {
+                        drState[s2][f] = true;
+                        changed = true;
+                    }
+                }
+                for (int f = 0; f < htn->numStateBits; f++) { // progress rest of state
+                    if (drState[s][f] && !drState[s2][f]) {
+                        drState[s2][f] = true;
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                if (inFringe.find(s2) == inFringe.end()) {
+                    fringe.push_back(s2);
+                    inFringe.insert(s2);
+                }
+            }
+        }
+    }
+    // pruning
+    int prunedArcs = 0;
+    int otherArcs = 0;
+    vector<int> arcs;
+    for (int s = 0; s < numStates; s++) {
+        arcs.clear();
+        for (ArcIterator<StdFst> aiter(*fst, s); !aiter.Done(); aiter.Next()) {
+            const StdArc &arc = aiter.Value();
+            int a = arc.ilabel - 1;
+            bool applicable = true;
+            for (int i = 0; i < htn->numPrecs[a]; i++) {
+                int f = htn->precLists[a][i];
+                if (!drState[s][f]) {
+                    applicable = false;
+                    break;
+                }
+            }
+            if (applicable) {
+                arcs.push_back(arc.ilabel - 1);
+                arcs.push_back(arc.nextstate);
+                otherArcs++;
+            } else {
+                prunedArcs++;
+            }
+        }
+        fst->DeleteArcs(s);
+        for (int i = 0; i < arcs.size(); i+=2) {
+            addRule(fst, s, arcs[i], arcs[i + 1], 0);
+        }
+    }
+    delete[] drState;
+    cout << "- pruned " << prunedArcs << " of " << (prunedArcs + otherArcs) << " arcs." << endl;
+//    showDOT(fst);
+}
+
 void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
     const int numStates = fst->NumStates();
-    set<int>* inLabels = new set<int>[numStates];
+    set<int>* incommingActions = new set<int>[numStates];
     for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
         int state_id = siter.Value();
         for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
             const StdArc &arc = aiter.Value();
-            inLabels[arc.nextstate].insert(arc.ilabel - 1);
+            incommingActions[arc.nextstate].insert(arc.ilabel - 1);
         }
     }
-    set<int>* pState = new set<int>;
-    set<int>* pTempState = new set<int>;
+    set<int>* accumState = new set<int>;
+    set<int>* actionInv = new set<int>;
     vector<int> arcs;
     for (int state = 0; state < numStates; state++) {
         if (state == fst->Start()) {
             continue;
         }
-        pState->clear();
+        accumState->clear();
         bool first = true;
-        if (!inLabels[state].empty()) {
-            for (int action : inLabels[state]) {
-                pTempState->clear();
+        if (!incommingActions[state].empty()) {
+            for (int action : incommingActions[state]) {
+                actionInv->clear();
                 if (action != epsilon) {
                     // preconditions that are not changed
                     for (int i = 0; i < htn->numPrecs[action]; i++) {
                         int prec = htn->precLists[action][i];
-                        pTempState->insert(prec);
+                        actionInv->insert(prec);
                     }
                     // effects
                     for (int i = 0; i < htn->numDels[action]; i++) {
                         int del = htn->delLists[action][i];
-                        pTempState->erase(del);
+                        actionInv->erase(del);
                     }
                     for (int i = 0; i < htn->numAdds[action]; i++) {
                         int add = htn->addLists[action][i];
-                        pTempState->insert(add);
+                        actionInv->insert(add);
                     }
                 }
                 if (first) {
                     first = false;
-                    pState->insert(pTempState->begin(), pTempState->end());
+                    accumState->insert(actionInv->begin(), actionInv->end());
                 } else { // intersect
-                    for (auto iter = pState->begin(); iter != pState->end();) {
+                    for (auto iter = accumState->begin(); iter != accumState->end();) {
                         int p = *iter;
-                        if (pTempState->find(p) == pTempState->end()) {
-                            iter = pState->erase(iter);
+                        if (actionInv->find(p) == actionInv->end()) {
+                            iter = accumState->erase(iter);
                         } else {
                             ++iter;
                         }
                     }
                 }
-
             }
-            if (!pState->empty()) {
+            if (!accumState->empty()) {
                 arcs.clear();
                 for (ArcIterator<StdFst> aiter(*fst, state); !aiter.Done(); aiter.Next()) {
                     const StdArc &arc = aiter.Value();
@@ -1151,7 +1246,7 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
                         int p = htn->precLists[action][i];
                         int var = htn->bitToVar[p];
                         for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
-                            if ((j != p) && (pState->find(j) != pState->end())) {
+                            if ((j != p) && (accumState->find(j) != accumState->end())) {
                                 applicable = false;
                                 break;
                             }
@@ -1163,9 +1258,7 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
                     if (applicable) {
                         arcs.push_back(arc.ilabel - 1);
                         arcs.push_back(arc.nextstate);
-                    } //else {
-                      //  cout << "PRUNED!!!"<< endl;
-                    //}
+                    }
                 }
                 fst->DeleteArcs(state);
                 for (int i = 0; i < arcs.size(); i+=2) {
@@ -1181,27 +1274,27 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
 //            continue;
 //        for (auto to : *l.second) {
 //            if (pStates.find(to.first) == pStates.end()) {
-//                set<int>* pState = new set<int>;
-//                pStates.insert({to.first, pState});
+//                set<int>* accumState = new set<int>;
+//                pStates.insert({to.first, accumState});
 //                int action = l.first;
 //
 //                // preconditions that are not changed
 //                for (int i = 0; i < htn->numPrecs[action]; i++) {
 //                    int prec = htn->precLists[action][i];
-//                    pState->insert(prec);
+//                    accumState->insert(prec);
 //                }
 //                // effects
 //                for (int i = 0; i < htn->numDels[action]; i++) {
 //                    int del = htn->delLists[action][i];
-//                    pState->erase(del);
+//                    accumState->erase(del);
 //                }
 //                for (int i = 0; i < htn->numAdds[action]; i++) {
 //                    int add = htn->addLists[action][i];
-//                    pState->insert(add);
+//                    accumState->insert(add);
 //                }
 //            } else {
-//                set<int>* pState = pStates.find(to.first)->second;
-//                if (pState == nullptr) {
+//                set<int>* accumState = pStates.find(to.first)->second;
+//                if (accumState == nullptr) {
 //                    continue;
 //                }
 //                // intersect old set with (unchanged precs \cup add effects)
@@ -1222,30 +1315,30 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
 //                    int add = htn->addLists[action][i];
 //                    tempPState->insert(add);
 //                }
-//                for(auto iter = pState->begin(); iter != pState->end(); ) {
+//                for(auto iter = accumState->begin(); iter != accumState->end(); ) {
 //                    int p = *iter;
 //                    if (tempPState->find(p) == tempPState->end()) {
-//                        iter = pState->erase(iter);
+//                        iter = accumState->erase(iter);
 //                    } else {
 //                        ++iter;
 //                    }
 //                }
 //                delete tempPState;
 //
-//                if (pState->empty()) { // closed
-//                    delete pState;
+//                if (accumState->empty()) { // closed
+//                    delete accumState;
 //                    pStates.at(to.first) = nullptr;
 //                }
 //            }
 //        }
 //    }
 ////    cout << endl;
-////    for (auto pState : pStates) {
-////        if (pState.second == nullptr) {
+////    for (auto accumState : pStates) {
+////        if (accumState.second == nullptr) {
 ////            continue;
 ////        }
-////        cout << pState.first <<  ":";
-////        for(int p : *pState.second) {
+////        cout << accumState.first <<  ":";
+////        for(int p : *accumState.second) {
 ////            cout << " " << htn->factStrs[p];
 ////        }
 ////         cout << endl;
@@ -1264,7 +1357,7 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
 //            continue;
 //        }
 //
-//        set<int> pState = *pStates.find(from.first)->second;
+//        set<int> accumState = *pStates.find(from.first)->second;
 //
 //        bool totallyEmpty = false;
 //        for (auto iter = from.second->begin(); iter != from.second->end(); ) {
@@ -1279,7 +1372,7 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
 //                int p = htn->precLists[action][i];
 //                int var =  htn->bitToVar[p];
 //                for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
-//                    if ((j != p) && (pState.find(j) != pState.end())) {
+//                    if ((j != p) && (accumState.find(j) != accumState.end())) {
 //                        applicable = false;
 //                        break;
 //                    }
@@ -1305,8 +1398,8 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
 //            iter2++;
 //        }
 //    }
-//    for (auto pState : pStates) {
-//        delete pState.second;
+//    for (auto accumState : pStates) {
+//        delete accumState.second;
 //    }
 }
 

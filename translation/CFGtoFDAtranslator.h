@@ -119,6 +119,7 @@ public:
 
 
     void statePruning(Model *htn, StdVectorFst *pFa);
+    void statePruning2(Model *htn, StdVectorFst *pFa);
 
 
     void addRule(StdVectorFst *fst, int from, int label, int to, int costs);
