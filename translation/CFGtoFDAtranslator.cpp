@@ -627,7 +627,7 @@ void CFGtoFDAtranslator::printRules() {
 
 bool reduceSubFAs = true;
 bool reduceFinalFA = false;
-bool statebasedPruning = false;
+bool statebasedPruning = true;
 bool removeEpsilon = false;
 
 StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
@@ -706,7 +706,6 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
-    cout << "- automaton has " << (int) fstInit->NumStates() << " states [faFinalStates=" << (int) fstInit->NumStates() << "]." << endl;
     startT = endT;
 
 //    showDOT(fstInit);
@@ -720,6 +719,24 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 //    for (int i = 0; i < dist->size(); i++) {
 //        cout << i << " " <<fixed << setprecision(2) <<  dist->at(i).Value() << endl;
 //    }
+
+
+    if (statebasedPruning) {
+        int startState = (int) fstInit->NumStates();
+        cout << "State-based Pruning" << endl;
+        statePruning(htn, fstInit);
+//         Connect(fstInit);
+        Minimize(fstInit);
+        int endState = (int) fstInit->NumStates();
+        double reduction = (100.0 / (double) startState * (double) endState);
+        cout << "- reduces states from " << startState << " to " << endState << " states [faStatebasedPruning=";
+        cout << fixed << setprecision(2)  << reduction << "]." << endl;
+
+        gettimeofday(&tp, NULL);
+        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [timeStateBasedPruning=" << (endT - startT) << "]" << endl;
+        startT = endT;
+    }
 
     cout << "Creating heuristic lookup table" << endl;
     int numStates = fstInit->NumStates();
@@ -738,6 +755,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             addRule(fstRev,arc.nextstate, arc.ilabel, state_id, 0);
         }
     }
+
 //    showDOT(fstRev);
     int* hVals = new int[numStates];
     for (int i = 0; i < numStates; i++) {
@@ -784,7 +802,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [hTable=" << (endT - startT) << "]" << endl;
-    return fstInit;
+    startT = endT;
 
 //    unordered_map<int, StdVectorFst*> subFAs;
 //    double reduction = 0;
@@ -888,21 +906,13 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 ////    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
 ////    showDOT(fst, htn->taskNames);
 ////    showDOT(fst);
-//    if (statebasedPruning) {
-//        cout << "- state-based pruning" << endl;
-//        statePruning(htn, fst);
-//        Connect(fst);
-//        Minimize(fst);
-//        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
-//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//        cout << "- [timeStateBasedPruning=" << (endT - startT) << "]" << endl;
-//        startT = endT;
+
+//    if (reduceFinalFA || statebasedPruning) {
+//        cout << "- [finalSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
 //    }
-////    if (reduceFinalFA || statebasedPruning) {
-////        cout << "- [finalSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
-////    }
-////    showDOT(fst, htn->taskNames);
-    return nullptr;
+//    showDOT(fst, htn->taskNames);
+    cout << "final automaton has " << (int) fstInit->NumStates() << " states [faFinalStates=" << (int) fstInit->NumStates() << "]." << endl;
+    return fstInit;
 }
 
 StdVectorFst *CFGtoFDAtranslator::getFA(tLabelID alpha) {
