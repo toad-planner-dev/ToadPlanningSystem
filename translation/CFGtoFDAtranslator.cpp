@@ -627,7 +627,7 @@ void CFGtoFDAtranslator::printRules() {
 
 bool reduceSubFAs = true;
 bool reduceFinalFA = false;
-bool statebasedPruning = true;
+bool statebasedPruning = false;
 bool removeEpsilon = false;
 
 StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
