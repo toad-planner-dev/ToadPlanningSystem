@@ -6,6 +6,7 @@
 #define TOSTRIPSAPPROXIMATION_MODELWRITER_H
 
 
+#include <fst/vector-fst.h>
 #include "htnModel/Model.h"
 #include "translation/FiniteAutomaton.h"
 
@@ -13,6 +14,9 @@ class ModelWriter {
     int epsilonAcs = 0;
     StringUtil su;
     Model *m;
+    vector<int> dfaGoalStates;
+    int finalState = -1;
+    int multipleGoals = false;
 
     void writeDomain(ostream &os);
 
@@ -25,16 +29,15 @@ class ModelWriter {
     void writeEpsilonAction(ostream& os, int prec, int add, int del);
 
 public:
-    void write(Model *htn, FiniteAutomaton *automaton, bool writePDDL, string dFile, string pFile);
+    void write(Model *htn, fst::VectorFst<fst::StdArc> *automaton, string dFile, string pFile);
 
     void writeActionCF(ostream& ostream, int action, set<pair<int, int>*>* cfSet);
     void writeEpsilonActionCF(ostream& os,  set<pair<int, int>*>* cfSet);
 
     bool getSASVal(int *store, int* somelist, int length) const;
 
-    FiniteAutomaton *dfa;
+    fst::VectorFst<fst::StdArc> *dfa;
 
-    void writeSASPlus(ostream &os, unordered_map<int, unordered_map<int, set<int> *> *> *extraStuff);
 
     string sasCleanStr(string s);
 };
