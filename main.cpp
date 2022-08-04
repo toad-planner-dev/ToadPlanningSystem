@@ -6,6 +6,7 @@
 #include "translation/CFtoRegGrammarEnc.h"
 #include "dfaLib/FA.h"
 #include "SASWriter.h"
+#include "ModelWriter.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -62,6 +63,16 @@ int main(int argc, char *argv[]) {
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
     startT = endT;
 
+
+
+//    // this is not TOAD <BEGIN>
+//    SASWriter mw3;
+//    string pFile3 = "problem.sas";
+//    mw3.write2(htn, 5, pFile3);
+//    exit(0);
+//    // this is not TOAD <END>
+
+
     /*
     * Building grammar
     */
@@ -99,6 +110,7 @@ int main(int argc, char *argv[]) {
     to2s->initDataStructures(htn->initialTask);
     to2s->calcSCCs(htn->initialTask);
     to2s->analyseRules(true);
+    gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timeHtnToGrammar=" << (endT - startT) << "]" << endl;
     startT = endT;
@@ -135,6 +147,9 @@ int main(int argc, char *argv[]) {
 
     SASWriter mw2;
     mw2.write(htn, fa, dFile2, pFile2);
+
+//    ModelWriter mw;
+//    mw.write(htn, fa, dFile2, pFile2);
 
     return 0;
 }

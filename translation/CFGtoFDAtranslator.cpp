@@ -665,15 +665,16 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 //            cout << task << endl;
             if (task < htn->numActions)
                 continue;
+            //cout << "- task: " << task << endl;
             StdVectorFst* fst = getFA(task);
-            StdVectorFst *fst2 = getNewFA();
-            Determinize(*fst, fst2);
-            delete fst;
-            fst = fst2;
-            Minimize(fst);
+//            StdVectorFst *fst2 = getNewFA();
+//            Determinize(*fst, fst2);
+//            delete fst;
+//            fst = fst2;
+//            Minimize(fst);
 //            showDOT(fst);
             label_fst_pairs.emplace_back(task + 1, fst);
-
+/*
             StdVectorFst* fstFull = getNewFA();
             Replace(label_fst_pairs, fstFull, task + 1, true);
             fst2 = getNewFA();
@@ -688,7 +689,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             if (task == htn->initialTask) {
                 fstInit = fstFull;
             }
-            //showDOT(fstFull);
+            //showDOT(fstFull);*/
         }
         double current = 100.0/maxScc * i;
         if (current > (output + 10)) {
@@ -698,6 +699,9 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             output += 10;
         }
     }
+    fstInit = getNewFA();
+    Replace(label_fst_pairs, fstInit, htn->initialTask + 1, true);
+
     for (auto p : label_fst_pairs) {
         if (p.first != (htn->initialTask + 1)) {
             delete p.second;
@@ -739,6 +743,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
         startT = endT;
     }
 
+    /*
     cout << "Creating heuristic lookup table" << endl;
     int numStates = fstInit->NumStates();
     set<int> final;
@@ -804,7 +809,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [hTable=" << (endT - startT) << "]" << endl;
     startT = endT;
-
+*/
 //    unordered_map<int, StdVectorFst*> subFAs;
 //    double reduction = 0;
 //    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
