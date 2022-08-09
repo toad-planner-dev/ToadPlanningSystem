@@ -641,7 +641,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     gettimeofday(&tp, NULL);
     long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     long endT;
-    for (int i = 0; i < numSymbols; i++) {
+    for (int i = numTerminals; i < numSymbols; i++) {
 //        cout << i <<" -> " << taskToScc[i] << endl;
         int scc = taskToScc[i];
         if (scc > maxScc) {
@@ -649,6 +649,9 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
         }
         sccToTask[scc].push_back(i);
     }
+//    for (int i = 0; i <= maxScc; i++) {
+//        cout << "scc " << i << " size " << sccToTask[i].size() << endl;
+//    }
 //    cout << "scc "  << numSCCs << endl;
 
 //    int initalTask = sccToTask[maxScc][0];
@@ -659,9 +662,12 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     double output = 0;
     cout << "  0%" << endl;
 //    cout << "SCC:";
-    for (int i = 0; i <= maxScc; i++) {
+
+    int i = 0;
+    for (auto& scc: sccToTask) {
 //        cout << " " << i;
-        for (int task : sccToTask[i]) {
+        i++;
+        for (int task : scc.second) {
 //            cout << task << endl;
             if (task < htn->numActions)
                 continue;
@@ -691,16 +697,26 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             }
             //showDOT(fstFull);*/
         }
-        double current = 100.0/maxScc * i;
+        double current = 100.0/sccToTask.size() * i;
         if (current > (output + 10)) {
             gettimeofday(&tp, NULL);
             endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
             cout << " " << fixed << setprecision(0) << current << "% ["<< fixed << setprecision(2) << (endT - startT) << "]" << endl;
             output += 10;
+//            if (current > 88) {
+//                cout << "blub" << endl;
+//            }
         }
     }
     fstInit = getNewFA();
     Replace(label_fst_pairs, fstInit, htn->initialTask + 1, true);
+
+    StdVectorFst *fst2 = getNewFA();
+    Determinize(*fstInit, fst2);
+    delete fstInit;
+    fstInit = fst2;
+    Minimize(fstInit);
+    RmEpsilon(fstInit);
 
     for (auto p : label_fst_pairs) {
         if (p.first != (htn->initialTask + 1)) {
@@ -712,7 +728,7 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
     cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
     startT = endT;
 
-//    showDOT(fstInit);
+    showDOT(fstInit);
 //    int start = (int)fstInit->NumStates();
 //    cout << "  - automaton has " << (int) fstInit->NumStates() << " states [faFullStates=" << (int) fstInit->NumStates() << "]." << endl;
 //
@@ -1445,6 +1461,7 @@ StdVectorFst *CFGtoFDAtranslator::getNewFA() {
     return fst;
 }
 
+
 //
 //eRecursion * CFGtoFDAtranslator::getRecInfo(const vector<int> *sccs) {
 //    eRecursion* recursion = new eRecursion[numSCCs];
@@ -1503,3 +1520,163 @@ for(int i = 0; i < numSymbols; i++) {
     cout << "keep " << i << " until after scc " << keepUntil[i] << endl;
 }
 */
+
+
+
+
+
+
+
+
+
+
+
+//////////////////////////////////////
+
+StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
+    StdVectorFst* fst = new StdVectorFst();
+    fst->SetProperties(kAcceptor, true);
+    int sInit = nextState(fst);
+    fst->SetStart(sInit);
+    int sFinal = nextState(fst);
+    fst->SetFinal(sFinal, 0);
+    tdMakeFA(fst, sInit, init, sFinal);
+//    addRule(fst, sInit, 1, sFinal, 1);
+    //Verify(*fst);
+    //showDOT(fst);
+    cout << "States: " << fst->NumStates() << endl;
+
+    StdVectorFst *fst2 = getNewFA();
+    Determinize(*fst, fst2);
+    delete fst;
+    fst = fst2;
+    Minimize(fst);
+    RmEpsilon(fst);
+    cout << "States: " << fst->NumStates() << endl;
+    return fst;
+}
+
+
+//void CFGtoFDAtranslator::addRule(vector<int> *r) {
+//    grRule *r2 = new grRule();
+//    r2->left = r->at(0);
+//    r2->rLength = r->size() - 1;
+//    r2->right = new int[r2->rLength];
+//    for (int i = 1; i < r->size(); i++) {
+//        r2->right[i - 1] = r->at(i);
+//    }
+//    tempRules.push_back(r2);
+//}
+
+void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha, int q1) {
+    assert(alpha->size() > 0);
+    if (alpha->size() == 1) {
+        tdMakeFA(fst, q0, alpha->at(0), q1);
+    } else if (alpha->size() > 1) {
+        int q = nextState(fst);
+//        cout << "++" << endl;
+        int X = alpha->at(0);
+        vector<int> *beta = new vector<int>;
+        for (int i = 1; i < alpha->size(); i++)
+            beta->push_back(alpha->at(i));
+        tdMakeFA(fst, q0, X, q);
+        tdMakeFA(fst, q, beta, q1);
+    }
+    delete alpha;
+}
+
+void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, int A, int q1) {
+    if (A == Epsilon) {
+        addRule(fst, q0, A, q1, 0);
+    } else if (isTerminalSym(A)) {
+        addRule(fst,q0, A, q1, 1);
+    } else {
+        if (SymToNi[A] >= 0) {
+            // get partition containing A
+            int Nl = SymToNi[A];
+
+            // create new states
+            unordered_map<int, int> qB;
+            for (int j = 0; j < NiSize[Nl]; j++) {
+                int task = Ni[Nl][j];
+                int id = fst->AddState();
+//                cout << "++" << endl;
+                qB[task] = id;
+            }
+
+            // left recursion
+            if (NiRec[Nl] == recLeft) {
+                // iterate rules that decompose some C belonging to the same partition
+                for (int i = 0; i < NiSize[Nl]; i++) {
+                    int C = Ni[Nl][i]; // left-hand side
+                    int qC = qB[C];
+                    for (int l = rFirst[C]; l <= rLast[C]; l++) {
+                        grRule *rule = rules[l];
+                        int D = rule->right[0]; // first right-hand side
+                        int Nk = -1;
+                        if (D >= 0) {
+                            Nk = SymToNi[D];
+                        }
+                        if (Nk != Nl) {
+                            tdMakeFA(fst, q0, copySubSeq(rule, 0, rule->rLength), qC);
+                        } else {
+                            int qD = qB[D];
+                            if(rule->rLength > 1) {
+                                tdMakeFA(fst, qD, copySubSeq(rule, 1, rule->rLength), qC);
+                            } else {
+                                tdMakeFA(fst, qD, Epsilon, qC);
+                            }
+                        }
+                    }
+                }
+                int qA = qB[A];
+                addRule(fst,qA, Epsilon, q1, 0);
+            } else { // right or cyclic
+                // iterate rules that decompose some C belonging to the same partition
+                for (int i = 0; i < NiSize[Nl]; i++) {
+                    int C = Ni[Nl][i]; // left-hand side
+                    int qC = qB[C];
+
+                    for (int l = rFirst[C]; l <= rLast[C]; l++) {
+                        grRule *rule = rules[l];
+                        int D = rule->right[rule->rLength - 1]; // last right-hand side
+                        int Nk = -1;
+                        if(D >= 0) {
+                            Nk = SymToNi[D];
+                        }
+                        if (Nk != Nl) {
+                            tdMakeFA(fst, qC, copySubSeq(rule, 0, rule->rLength), q1);
+                        } else {
+                            int qD = qB[D];
+                            if(rule->rLength > 1) {
+                                tdMakeFA(fst, qC, copySubSeq(rule, 0, rule->rLength - 1), qD);
+                            } else {
+                                tdMakeFA(fst, qC, Epsilon, qD);
+                            }
+                        }
+                    }
+                }
+                int qA = qB[A];
+                addRule(fst, q0, Epsilon, qA, 1);
+            }
+        } else { // a non-recursive non-terminal
+            for (int l = rFirst[A]; l <= rLast[A]; l++) {
+                grRule *rule = rules[l];
+                tdMakeFA(fst, q0, copySubSeq(rule, 0, rule->rLength), q1);
+            }
+        }
+    }
+}
+
+vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
+    vector<int> *out = new vector<int>;
+    assert(from >= 0);
+    assert(from < to);
+    assert(from < in->rLength);
+    assert(to > 0);
+    assert(to <= in->rLength);
+    for (int i = from; i < to; i++) {
+        out->push_back(in->right[i]);
+    }
+    return out;
+}
