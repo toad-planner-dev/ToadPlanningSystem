@@ -136,6 +136,7 @@ public:
 
     void tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha, int q1);
 
+    void tdMakeFA(StdVectorFst *fst, int q0, int A, int q1, bool top);
     void tdMakeFA(StdVectorFst *fst, int q0, int A, int q1);
 };
 

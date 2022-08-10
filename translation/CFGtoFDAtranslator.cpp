@@ -665,19 +665,25 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 
     int i = 0;
     for (auto& scc: sccToTask) {
-//        cout << " " << i;
+        cout << "scc " << i << " of " << sccToTask.size() << endl;
         i++;
+        int numM = 0;
+        for (int task : scc.second) {
+            numM += htn->numMethodsForTask[task];
+        }
+        cout << "    " << scc.second.size() << " tasks with " << numM << " methods." << endl;
+
         for (int task : scc.second) {
 //            cout << task << endl;
             if (task < htn->numActions)
                 continue;
             //cout << "- task: " << task << endl;
             StdVectorFst* fst = getFA(task);
-//            StdVectorFst *fst2 = getNewFA();
-//            Determinize(*fst, fst2);
-//            delete fst;
-//            fst = fst2;
-//            Minimize(fst);
+            StdVectorFst *fst2 = getNewFA();
+            Determinize(*fst, fst2);
+            delete fst;
+            fst = fst2;
+            Minimize(fst);
 //            showDOT(fst);
             label_fst_pairs.emplace_back(task + 1, fst);
 /*
@@ -708,10 +714,22 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
 //            }
         }
     }
+    gettimeofday(&tp, NULL);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
+    startT = endT;
+
     fstInit = getNewFA();
     Replace(label_fst_pairs, fstInit, htn->initialTask + 1, true);
 
     StdVectorFst *fst2 = getNewFA();
+    Determinize(*fstInit, fst2);
+    delete fstInit;
+    fstInit = fst2;
+    Minimize(fstInit);
+    RmEpsilon(fstInit);
+
+    fst2 = getNewFA();
     Determinize(*fstInit, fst2);
     delete fstInit;
     fstInit = fst2;
@@ -723,10 +741,6 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
             delete p.second;
         }
     }
-    gettimeofday(&tp, NULL);
-    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
-    startT = endT;
 
     showDOT(fstInit);
 //    int start = (int)fstInit->NumStates();
@@ -1425,6 +1439,12 @@ void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
 }
 
 void CFGtoFDAtranslator::addRule(StdVectorFst *fst, int from, int label, int to, int costs) {
+//    for (ArcIterator<StdFst> aiter(*fst, from); !aiter.Done(); aiter.Next()) {
+//        const StdArc &arc = aiter.Value();
+//        if(arc.ilabel == label) {
+//            arc.nextstate;
+//        }
+//    }
     fst->AddArc(from, StdArc(label + 1, label + 1, 0, to));
 }
 
@@ -1533,26 +1553,95 @@ for(int i = 0; i < numSymbols; i++) {
 
 //////////////////////////////////////
 
+vector<bool> inplace;
+vector<int> tstack;
+unordered_set<int> done;
+
 StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
-    StdVectorFst* fst = new StdVectorFst();
-    fst->SetProperties(kAcceptor, true);
-    int sInit = nextState(fst);
-    fst->SetStart(sInit);
-    int sFinal = nextState(fst);
-    fst->SetFinal(sFinal, 0);
-    tdMakeFA(fst, sInit, init, sFinal);
-//    addRule(fst, sInit, 1, sFinal, 1);
+    vector<int> occurances;
+    for (int i = 0; i < htn->numTasks; i++) {
+        occurances.push_back(0);
+    }
+
+    for (int i = 0; i < htn->numMethods; i++) {
+        for (int j = 0; j < htn->numSubTasks[i]; j++) {
+            const int t = htn->subTasks[i][j];
+            occurances[t]++;
+        }
+    }
+    vector<int> hist;
+    for (int i = numTerminals; i < htn->numTasks; i++) {
+        int occ = occurances[i];
+        while (occ >= hist.size()) {
+            hist.push_back(0);
+        }
+        hist[occ]++;
+    }
+//    for (int i = 0; i < hist.size(); i++) {
+//        cout << i << ": " << hist[i] << " times" << endl;
+//    }
+    for (int i = 0; i < htn->numTasks; i++) {
+        inplace.push_back(occurances[i] < 10);
+    }
+
+    vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
+    tstack.push_back(init);
+    done.insert(init);
+    cout << "abstract tasks: " << (htn->numTasks - htn->numActions) << endl;
+    while (!tstack.empty()) {
+        //cout << "done: " << done.size() << "; stack: " << tstack.size() << endl;
+        int task = tstack[tstack.size() - 1];
+        tstack.pop_back();
+
+        StdVectorFst *fst = getNewFA();
+        int sInit = nextState(fst);
+        fst->SetStart(sInit);
+        int sFinal = nextState(fst);
+        fst->SetFinal(sFinal, 0);
+        tdMakeFA(fst, sInit, task, sFinal, true);
+        //showDOT(fst);
+        
+        StdVectorFst *fst2 = getNewFA();
+        Determinize(*fst, fst2);
+        delete fst;
+        fst = fst2;
+        Minimize(fst);
+        RmEpsilon(fst);
+
+        label_fst_pairs.emplace_back(task + 1, fst);
+    }
+    StdVectorFst* fst = getNewFA();
+    cout << "sub-automata: " << label_fst_pairs.size() << endl;
+    Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
+
     //Verify(*fst);
     //showDOT(fst);
     cout << "States: " << fst->NumStates() << endl;
 
     StdVectorFst *fst2 = getNewFA();
+    RmEpsilon(fst);
     Determinize(*fst, fst2);
     delete fst;
     fst = fst2;
     Minimize(fst);
-    RmEpsilon(fst);
     cout << "States: " << fst->NumStates() << endl;
+
+//    fst2 = getNewFA();
+//    Determinize(*fst, fst2);
+//    delete fst;
+//    fst = fst2;
+//    Minimize(fst);
+//    RmEpsilon(fst);
+//    cout << "States: " << fst->NumStates() << endl;
+//
+//    fst2 = getNewFA();
+//    Determinize(*fst, fst2);
+//    delete fst;
+//    fst = fst2;
+//    Minimize(fst);
+//    RmEpsilon(fst);
+//    cout << "States: " << fst->NumStates() << endl;
+
     return fst;
 }
 
@@ -1586,11 +1675,21 @@ void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha,
 }
 
 void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, int A, int q1) {
+    tdMakeFA(fst, q0, A, q1, false);
+}
+
+void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, int A, int q1, bool top) {
     if (A == Epsilon) {
         addRule(fst, q0, A, q1, 0);
     } else if (isTerminalSym(A)) {
-        addRule(fst,q0, A, q1, 1);
-    } else {
+        addRule(fst, q0, A, q1, 1);
+    } else if ((!top) &&(!inplace[A])) {
+        addRule(fst, q0, A, q1, 1);
+        if (done.find(A) == done.end()) {
+            done.insert(A);
+            tstack.push_back(A);
+        }
+    } else { // inplace
         if (SymToNi[A] >= 0) {
             // get partition containing A
             int Nl = SymToNi[A];
