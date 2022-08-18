@@ -136,8 +136,24 @@ int main(int argc, char *argv[]) {
     gettimeofday(&tp, NULL);
     long startB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "Building DFA" << endl;
-//    StdVectorFst* fa = to2s->makeFABU(htn, htn->initialTask);
+//    StdVectorFst* fa = to2s->makeFABU(htn, htn->initialTask); // snake 15
     StdVectorFst* fa = to2s->makeFATD(htn, htn->initialTask);
+//    StdVectorFst* fa = to2s->makeFATDio(htn, htn->initialTask);
+
+    int old = 0;
+    while (old != fa->NumStates()) {
+        old = fa->NumStates();
+        StdVectorFst *fst2 = new StdVectorFst();
+        fst2->SetProperties(kAcceptor, true);
+
+        RmEpsilon(fa);
+        Determinize(*fa, fst2);
+        delete fa;
+        fa = fst2;
+        Minimize(fa);
+        cout << "pass " << old << " -> " << fa->NumStates() << endl;
+    }
+
     gettimeofday(&tp, NULL);
     long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;

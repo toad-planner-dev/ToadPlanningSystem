@@ -44,6 +44,11 @@ class CFGtoFDAtranslator {
 
     void sortRules();
 //    StdVectorFst *fst myCombine()
+    vector<bool> inplace;
+    vector<int> tstack;
+    unordered_set<int> done;
+
+
 public:
     virtual ~CFGtoFDAtranslator();
 
@@ -135,9 +140,16 @@ public:
     StdVectorFst *makeFATD(Model *pModel, int i);
 
     void tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha, int q1);
-
     void tdMakeFA(StdVectorFst *fst, int q0, int A, int q1, bool top);
     void tdMakeFA(StdVectorFst *fst, int q0, int A, int q1);
+
+    StdVectorFst *makeFATDio(Model *htn, int init);
+    void tdMakeFAio(StdVectorFst *fst, int q0, int A, int q1, bool top);
+    void tdMakeFAio(StdVectorFst *fst, int q0, int A, int q1);
+
+    void detInplace(const Model *htn);
+
+    StdVectorFst *tdMakeFA(int task);
 };
 
 

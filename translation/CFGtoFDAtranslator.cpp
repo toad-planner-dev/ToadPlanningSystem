@@ -631,17 +631,19 @@ bool statebasedPruning = false;
 bool removeEpsilon = false;
 
 StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
+    detInplace(htn);
+
     timeval tp;
     cout << "- building sub-automata..." << endl;
-    vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
+    unordered_map<int, const Fst<StdArc>*> subautomata;
 
-    //cout << "init " << htn->initialTask << endl;
+    cout << "init " << htn->initialTask << endl;
     int maxScc = -1;
     unordered_map<int, vector<int>> sccToTask;
     gettimeofday(&tp, NULL);
     long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     long endT;
-    for (int i = numTerminals; i < numSymbols; i++) {
+    for (int i = 0; i < numSymbols; i++) {
 //        cout << i <<" -> " << taskToScc[i] << endl;
         int scc = taskToScc[i];
         if (scc > maxScc) {
@@ -649,100 +651,211 @@ StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
         }
         sccToTask[scc].push_back(i);
     }
-//    for (int i = 0; i <= maxScc; i++) {
-//        cout << "scc " << i << " size " << sccToTask[i].size() << endl;
+
+//    ofstream myfile;
+//    myfile.open("tasks.dot");
+//    myfile << "digraph D {\n";
+//
+//    for (int t = 0; t < htn->numTasks; t++) {
+//        cout << t << " " << htn->taskNames[t] << endl;
+//        if (t < htn->numActions) continue;
+//        for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
+//            int m = htn->taskToMethods[t][mi];
+//            cout << " ->";
+//            for (int j = 0; j < htn->numSubTasks[m]; j++) {
+//                int st = htn->subTasks[m][j];
+//                cout << " " << st;
+//                myfile << "n" << t << " -> n" << st << "\n";
+//            }
+//            cout << endl;
+//        }
+//
 //    }
-//    cout << "scc "  << numSCCs << endl;
+//    myfile << "}\n";
+//    myfile.close();
+
+//    system("xdot tasks.dot &");
+
+
+
+//    myfile.open("dependencies.dot");
+//    myfile << "digraph D {\n";
+//
+//    for (int i = 0; i < numSCCs; i++) {
+//        cout << "SCC " << i << ":" << endl << " ";
+//        for (int t : sccToTask[i]) {
+//            cout << " " << t;
+//            if (t < htn->numActions) continue;
+//
+//            for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
+//                int m = htn->taskToMethods[t][mi];
+//                for (int j = 0; j < htn->numSubTasks[m]; j++) {
+//                    int st = htn->subTasks[m][j];
+//                    int stSCC = taskToScc[st];
+//                    myfile << "scc" << i << " -> scc" << stSCC << "\n";
+//                }
+//            }
+//        }
+//        cout << endl;
+//    }
+//    myfile << "}\n";
+//    myfile.close();
+//
+//    system("xdot dependencies.dot &");
+
+    vector<int> highestDependency;
+    set<int>* dependsOn = new set<int>[htn->numTasks];
+    for (int i = 0; i < numSCCs; i++) {
+        highestDependency.push_back(-1);
+    }
+    for (int t = htn->numActions; t < htn->numTasks; t++) {
+        int topSCC = taskToScc[t];
+        for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
+            int m = htn->taskToMethods[t][mi];
+            for (int j = 0; j < htn->numDistinctSTs[m]; j++) {
+                int st = htn->sortedDistinctSubtasks[m][j];
+                if (st < htn->numActions)
+                    continue;
+                int bottomSCC = taskToScc[st];
+                int storedSCC = highestDependency[bottomSCC];
+                if (storedSCC < topSCC) {
+                    highestDependency[bottomSCC] = topSCC;
+                }
+                if (taskToScc[t] != taskToScc[st]) {
+                    dependsOn[t].insert(st);
+                }
+            }
+        }
+    }
+
+//    for (int i = 0; i < numSCCs; i++) {
+//        cout << "scc" << i << ": " << highestDependency[i] << endl;
+//    }
+
+//    vector<int>* cleanUp[numSCCs]; // todo: too big
+//    for (int i = 0; i < numSCCs; i++) {
+//        const int h = highestDependency[i];
+//        if (h >= 0) {
+////            if (!inplace[i])
+//                cleanUp[h].push_back(i); // delete scc i after creating scc h
+//        }
+//    }
 
 //    int initalTask = sccToTask[maxScc][0];
 //    assert(initalTask == htn->initialTask);
 //    StdVectorFst* fst = getFA(initalTask);
 
+    int lastCleanup = -1;
     StdVectorFst* fstInit;
     double output = 0;
     cout << "  0%" << endl;
-//    cout << "SCC:";
-
-    int i = 0;
-    for (auto& scc: sccToTask) {
-        cout << "scc " << i << " of " << sccToTask.size() << endl;
-        i++;
-        int numM = 0;
-        for (int task : scc.second) {
-            numM += htn->numMethodsForTask[task];
-        }
-        cout << "    " << scc.second.size() << " tasks with " << numM << " methods." << endl;
-
-        for (int task : scc.second) {
-//            cout << task << endl;
-            if (task < htn->numActions)
+    set<int> created;
+    set<int> deleted;
+    vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
+    for (int iSCC = 0; iSCC < numSCCs; iSCC++) {
+        for (int iT = 0; iT < sccToTask[iSCC].size(); iT++) {
+            const int task  = sccToTask[iSCC][iT];
+            if ((task < htn->numActions) || (inplace[task]))
                 continue;
-            //cout << "- task: " << task << endl;
-            StdVectorFst* fst = getFA(task);
+
+            tstack.clear();
+            done.clear();
+
+            StdVectorFst* fst = tdMakeFA(task);
             StdVectorFst *fst2 = getNewFA();
+            RmEpsilon(fst);
             Determinize(*fst, fst2);
             delete fst;
             fst = fst2;
             Minimize(fst);
 //            showDOT(fst);
-            label_fst_pairs.emplace_back(task + 1, fst);
-/*
-            StdVectorFst* fstFull = getNewFA();
-            Replace(label_fst_pairs, fstFull, task + 1, true);
-            fst2 = getNewFA();
-            Determinize(*fstFull, fst2);
-            delete fstFull;
-            fstFull = fst2;
-            Minimize(fstFull);
-            RmEpsilon(fstFull);
+            if (tstack.empty()) {
+                subautomata[task] = fst;
+                if (task == tinit)
+                    fstInit = fst;
+            } else { // combine
+                for (int dep: tstack){
+//                    assert(deleted.find(dep) == deleted.end());
+                    label_fst_pairs.emplace_back(dep + 1, subautomata[dep]);
+                }
+                label_fst_pairs.emplace_back(task + 1, fst);
+                StdVectorFst *fstFull = getNewFA();
+                Replace(label_fst_pairs, fstFull, task + 1, true);
+                label_fst_pairs.clear();
 
-            label_fst_pairs.erase(label_fst_pairs.end());
-            label_fst_pairs.emplace_back(task + 1, fstFull);
-            if (task == htn->initialTask) {
-                fstInit = fstFull;
+                fst2 = getNewFA();
+                Determinize(*fstFull, fst2);
+                delete fstFull;
+                fstFull = fst2;
+                Minimize(fstFull);
+                RmEpsilon(fst2);
+                subautomata[task] = fstFull;
+                if (task == tinit)
+                    fstInit = fstFull;
             }
+            created.insert(task);
+//            label_fst_pairs.erase(label_fst_pairs.end());
+//            label_fst_pairs.emplace_back(task + 1, fstFull);
+//            if (task == htn->initialTask) {
+//                fstInit = fstFull;
+//            }
             //showDOT(fstFull);*/
         }
-        double current = 100.0/sccToTask.size() * i;
+//        for (int i = lastCleanup + 1; i <= iSCC; i++) {
+//            for (int obsoleteScc: cleanUp[i]) {
+//                for (int obsTask: sccToTask[obsoleteScc]) {
+//                    if (inplace[obsTask]) continue;
+//                    //delete subautomata[obsTask];
+////                        assert(deleted.find(obsTask) == deleted.end());
+//                    deleted.insert(obsTask);
+//                }
+//            }
+//        }
+//        lastCleanup = iSCC;
+
+        double current = 100.0/sccToTask.size() * iSCC;
         if (current > (output + 10)) {
             gettimeofday(&tp, NULL);
             endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
             cout << " " << fixed << setprecision(0) << current << "% ["<< fixed << setprecision(2) << (endT - startT) << "]" << endl;
             output += 10;
-//            if (current > 88) {
-//                cout << "blub" << endl;
-//            }
         }
     }
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
+    cout << "Created: " << created.size() << endl;
+    cout << "Deleted: " << deleted.size() << endl;
+    Verify(*fstInit);
+
     startT = endT;
+//    showDOT(fstInit, htn->taskNames);
 
-    fstInit = getNewFA();
-    Replace(label_fst_pairs, fstInit, htn->initialTask + 1, true);
+    //fstInit = subautomata[tinit];
+    //fstInit = getNewFA();
+//    Replace(label_fst_pairs, fstInit, htn->initialTask + 1, true);
+//
+//    StdVectorFst *fst2 = getNewFA();
+//    Determinize(*fstInit, fst2);
+//    delete fstInit;
+//    fstInit = fst2;
+//    Minimize(fstInit);
+//    RmEpsilon(fstInit);
+//
+//    fst2 = getNewFA();
+//    Determinize(*fstInit, fst2);
+//    delete fstInit;
+//    fstInit = fst2;
+//    Minimize(fstInit);
+//    RmEpsilon(fstInit);
+//
+//    for (auto p : label_fst_pairs) {
+//        if (p.first != (htn->initialTask + 1)) {
+//            delete p.second;
+//        }
+//    }
 
-    StdVectorFst *fst2 = getNewFA();
-    Determinize(*fstInit, fst2);
-    delete fstInit;
-    fstInit = fst2;
-    Minimize(fstInit);
-    RmEpsilon(fstInit);
-
-    fst2 = getNewFA();
-    Determinize(*fstInit, fst2);
-    delete fstInit;
-    fstInit = fst2;
-    Minimize(fstInit);
-    RmEpsilon(fstInit);
-
-    for (auto p : label_fst_pairs) {
-        if (p.first != (htn->initialTask + 1)) {
-            delete p.second;
-        }
-    }
-
-    showDOT(fstInit);
+//    showDOT(fstInit);
 //    int start = (int)fstInit->NumStates();
 //    cout << "  - automaton has " << (int) fstInit->NumStates() << " states [faFullStates=" << (int) fstInit->NumStates() << "]." << endl;
 //
@@ -1553,36 +1666,9 @@ for(int i = 0; i < numSymbols; i++) {
 
 //////////////////////////////////////
 
-vector<bool> inplace;
-vector<int> tstack;
-unordered_set<int> done;
 
 StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
-    vector<int> occurances;
-    for (int i = 0; i < htn->numTasks; i++) {
-        occurances.push_back(0);
-    }
-
-    for (int i = 0; i < htn->numMethods; i++) {
-        for (int j = 0; j < htn->numSubTasks[i]; j++) {
-            const int t = htn->subTasks[i][j];
-            occurances[t]++;
-        }
-    }
-    vector<int> hist;
-    for (int i = numTerminals; i < htn->numTasks; i++) {
-        int occ = occurances[i];
-        while (occ >= hist.size()) {
-            hist.push_back(0);
-        }
-        hist[occ]++;
-    }
-//    for (int i = 0; i < hist.size(); i++) {
-//        cout << i << ": " << hist[i] << " times" << endl;
-//    }
-    for (int i = 0; i < htn->numTasks; i++) {
-        inplace.push_back(occurances[i] < 10);
-    }
+    detInplace(htn);
 
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
     tstack.push_back(init);
@@ -1645,6 +1731,42 @@ StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
     return fst;
 }
 
+void CFGtoFDAtranslator::detInplace(const Model *htn) {
+    vector<int> occurances;
+    for (int i = 0; i < htn->numTasks; i++) {
+        occurances.push_back(0);
+    }
+
+    for (int i = 0; i < htn->numMethods; i++) {
+        for (int j = 0; j < htn->numSubTasks[i]; j++) {
+            const int t = htn->subTasks[i][j];
+            occurances[t]++;
+        }
+    }
+    vector<int> hist;
+    for (int i = numTerminals; i < htn->numTasks; i++) {
+        int occ = occurances[i];
+        while (occ >= hist.size()) {
+            hist.push_back(0);
+        }
+        hist[occ]++;
+    }
+//    for (int i = 0; i < hist.size(); i++) {
+//        cout << i << ": " << hist[i] << " times" << endl;
+//    }
+    for (int i = 0; i < htn->numTasks; i++) {
+        inplace.push_back(occurances[i] < 10);
+    }
+    inplace[htn->initialTask] = false; // this does not make sense
+//    cout << "not inplace:";
+//    for (int i = 0; i < htn->numTasks; i++) {
+//        if (!inplace[i]){
+//            cout << " " << i;
+//        }
+//    }
+//    cout << endl;
+}
+
 
 //void CFGtoFDAtranslator::addRule(vector<int> *r) {
 //    grRule *r2 = new grRule();
@@ -1656,6 +1778,16 @@ StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
 //    }
 //    tempRules.push_back(r2);
 //}
+
+StdVectorFst * CFGtoFDAtranslator::tdMakeFA(int task) {
+    StdVectorFst *fst = getNewFA();
+    int sInit = nextState(fst);
+    fst->SetStart(sInit);
+    int sFinal = nextState(fst);
+    fst->SetFinal(sFinal, 0);
+    tdMakeFA(fst, sInit, task, sFinal, true);
+    return fst;
+}
 
 void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha, int q1) {
     assert(alpha->size() > 0);
