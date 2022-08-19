@@ -29,40 +29,54 @@ int main(int argc, char *argv[]) {
             << "You have compiled TOAD without setting the NDEBUG flag. This will make it slow and should only be done for debug."
             << endl;
 #endif
-    string s;
+    string sProblemFile;
     timeval tp;
 
     int seed = 42;
     int algo = -1;
     int opt = -1;
     int inplaceThreshold = -1;
+    bool outputHeuristicTable = false;
 
+    // parse command line arguments
     bool printhelp = false;
-    if (argc < 4) {
+    if (argc < 3) {
         printhelp = true;
     } else {
-        string str = argv[1];
-        if (str == "TD") {
+        sProblemFile = argv[2];
+        string sAlgorithm = argv[1];
+        if (sAlgorithm == "TD") {
             algo = TD;
             opt = NoOpt;
-        } else if (str == "TD-PO") {
+        } else if (sAlgorithm == "TD-PO") {
             algo = TD;
             opt = PostOpt;
-        } else if (str == "BU-IO") {
+        } else if (sAlgorithm == "BU-IO") {
             algo = BU;
             opt = InterOpt;
         }
-        inplaceThreshold = atoi(argv[2]);
-        s = argv[3];
-        if (argc == 5) seed = atoi(argv[4]);
+
+        for (int i = 3; i < argc; i++) {
+            string arg = argv[i];
+            if (arg.find("ipt=") == 0) {
+                string sInplaceThreshold = arg.substr(4);
+                inplaceThreshold = stoi(sInplaceThreshold);
+            } else if (arg.find("seed=") == 0) {
+                string sSeed = arg.substr(5);
+                seed = stoi(sSeed);
+            } else if (arg.find("ht") == 0) {
+                outputHeuristicTable = true;
+            }
+        }
     }
 
     if (printhelp){
         cout << "usage:" << endl;
-        cout << "toad [TD|TD-PO|BU-IO] inplaceThreshold pandagrounding [seed]" << endl;
+        cout << "toad [TD|TD-PO|BU-IO] pandagrounding [ipt=INT] [seed=INT] [ht]" << endl;
         cout << "- TD: top down like in ICAPS version" << endl;
         cout << "- TD-PO: top down + post optimization" << endl;
         cout << "- TD-IO: top down + intermediate optimization" << endl;
+        cout << "- ipt: inplace threshold" << endl;
 
         exit(-1);
     }
@@ -75,10 +89,10 @@ int main(int argc, char *argv[]) {
     */
     gettimeofday(&tp, NULL);
     long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "Reading HTN model from file \"" << s << "\" ... " << endl;
+    cout << "Reading HTN model from file \"" << sProblemFile << "\" ... " << endl;
     Model *htn = new Model();
-    htn->filename = s;
-    htn->read(s);
+    htn->filename = sProblemFile;
+    htn->read(sProblemFile);
     gettimeofday(&tp, NULL);
 
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;

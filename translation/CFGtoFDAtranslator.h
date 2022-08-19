@@ -14,8 +14,6 @@
 using namespace std;
 using namespace fst;
 
-enum eRecursion {rNONE, rLEFT, rRIGHT, rSELF};
-
 struct grRule {
     int left = -1; // left-hand symbol
     int *right = nullptr; // right-hand symbols
