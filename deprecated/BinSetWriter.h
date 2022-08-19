@@ -7,7 +7,6 @@
 
 
 #include "htnModel/Model.h"
-#include "translation/FiniteAutomaton.h"
 
 class BinSetWriter {
 

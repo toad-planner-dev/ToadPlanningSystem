@@ -8,7 +8,6 @@
 
 #include <fst/vector-fst.h>
 #include "htnModel/Model.h"
-#include "translation/FiniteAutomaton.h"
 
 class ModelWriter {
     int epsilonAcs = 0;

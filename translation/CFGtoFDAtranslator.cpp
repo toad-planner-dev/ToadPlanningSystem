@@ -191,7 +191,7 @@ void CFGtoFDAtranslator::initDataStructures(int startingSymbol) {
         if (r->rLength == 0) {
             r->rLength = 1;
             r->right = new int[1];
-            r->right[0] = epsilon;
+            r->right[0] = Epsilon;
         }
         rules[newI++] = r;
     }
@@ -394,7 +394,7 @@ void CFGtoFDAtranslator::determineRuleRecursion(grRule *r) {
     for (int j = 0; j < r->rLength; j++) {
         int rSym = r->right[j];
         int Nj = -1;
-        if (rSym != epsilon) {
+        if (rSym != Epsilon) {
             Nj = this->SymToNi[rSym];
         }
         if (Ni == Nj) {
@@ -560,7 +560,7 @@ void CFGtoFDAtranslator::tarjan(int v) {
             grRule *r = rules[i];
             for (int j = 0; j < r->rLength; j++) {
                 int w = r->right[j];
-                if (w == epsilon)
+                if (w == Epsilon)
                     continue;
                 if (U[w]) {
                     tarjan(w);
@@ -759,7 +759,7 @@ void CFGtoFDAtranslator::detSymHandeledInplace(const Model *htn, int inplaceThre
     for (int i = 0; i < this->numRules; i++) {
         for (int j = 0; j < rules[i]->rLength; j++) {
             const int t = rules[i]->right[j];
-            if ((t != epsilon) && (!isTerminalSym(t))) {
+            if ((t != Epsilon) && (!isTerminalSym(t))) {
                 occurances->at(t)++;
             }
         }

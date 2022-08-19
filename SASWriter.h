@@ -6,7 +6,9 @@
 #define TOAD_SASWRITER_H
 
 #include "htnModel/Model.h"
-#include "dfaLib/FA.h"
+#include <fst/fstlib.h>
+
+using namespace fst;
 
 class SASWriter {
     Model *m;
@@ -18,6 +20,7 @@ class SASWriter {
 
 public:
     void write(Model *htn, StdVectorFst *automaton, string dName, string pName);
+
 };
 
 

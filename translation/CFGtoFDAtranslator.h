@@ -8,9 +8,7 @@
 #include <list>
 #include <map>
 #include <vector>
-#include "FiniteAutomaton.h"
 #include "../htnModel/Model.h"
-#include "../dfaLib/FA.h"
 #include <fst/fstlib.h>
 
 using namespace std;

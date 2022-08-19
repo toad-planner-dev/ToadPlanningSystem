@@ -5,6 +5,7 @@
 #include "SASWriter.h"
 #include <cassert>
 #include <fstream>
+#include <sys/time.h>
 
 void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName) {
     this->m = htn;
@@ -127,7 +128,10 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
     os << "end_goal\n";
 
     // count actions
-    cout << "- counting actions...";
+    cout << "- counting actions..." << endl;
+    timeval tp;
+    gettimeofday(&tp, NULL);
+    long beginCount = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     int numActions = 0;
     for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
         int state_id = siter.Value();
@@ -135,7 +139,11 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
             numActions++;
         }
     }
-    cout << "done." << endl;
+    gettimeofday(&tp, NULL);
+    long endCount = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "- [timeCountingActions=" << (endCount - beginCount) << "]" << endl;
+    cout << "- [numActions=" << numActions << "]" << endl;
+
     numActions += additionalActions;
     os << numActions << "\n";
 

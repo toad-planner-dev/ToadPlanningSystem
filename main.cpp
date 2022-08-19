@@ -1,10 +1,7 @@
 #include <iostream>
 #include "htnModel/Model.h"
-#include "translation/FiniteAutomaton.h"
 #include "translation/CFGtoFDAtranslator.h"
-#include "translation/TailRecAnalysis.h"
 #include "translation/CFtoRegGrammarEnc.h"
-#include "dfaLib/FA.h"
 #include "SASWriter.h"
 #include "ModelWriter.h"
 #include "translation/StateBasedReachability.h"

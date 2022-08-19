@@ -7,7 +7,6 @@
 
 
 #include "htnModel/Model.h"
-#include "translation/FiniteAutomaton.h"
 #include "macroAction.h"
 
 class ChainWriter {

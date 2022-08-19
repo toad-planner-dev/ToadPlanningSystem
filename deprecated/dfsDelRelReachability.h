@@ -6,7 +6,6 @@
 #define TOAD_DFSDELRELREACHABILITY_H
 
 
-#include "translation/FiniteAutomaton.h"
 #include "htnModel/Model.h"
 
 class dfsDelRelReachability {
