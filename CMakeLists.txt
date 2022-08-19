@@ -8,11 +8,11 @@ set(CMAKE_CXX_STANDARD 17)
 add_executable(toad main.cpp
         htnModel/Model.cpp htnModel/ProgressionNetwork.cpp
         translation/CFGtoFDAtranslator.cpp
-        ModelWriter.cpp ModelWriter.h
-        utils/IntUtil.cpp utils/noDelIntSet.cpp utils/IntPairHeap.cpp utils/IntStack.cpp utils/StringUtil.cpp
         translation/CFtoRegGrammarEnc.cpp
         translation/StateBasedReachability.cpp
-        SASWriter.cpp SASWriter.h)
+        translation/HeuFaDist.cpp
+        utils/IntUtil.cpp utils/noDelIntSet.cpp utils/IntPairHeap.cpp utils/IntStack.cpp utils/StringUtil.cpp
+        ModelWriter.cpp SASWriter.cpp)
 
 #target_link_libraries (toad /mnt/data_server/hoeller/toad3/code/libfst/openfst-1.8.2/src/lib/.libs/libfst.so)
 target_link_libraries (toad libfst.so)

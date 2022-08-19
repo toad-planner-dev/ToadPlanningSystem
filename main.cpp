@@ -5,6 +5,7 @@
 #include "SASWriter.h"
 #include "ModelWriter.h"
 #include "translation/StateBasedReachability.h"
+#include "translation/HeuFaDist.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -19,6 +20,9 @@ const int BU = 1;
 const int NoOpt = 2;
 const int PostOpt = 3;
 const int InterOpt = 4;
+
+const int outputSAS = 10;
+const int outputPDDL = 11;
 
 int main(int argc, char *argv[]) {
 
@@ -36,8 +40,8 @@ int main(int argc, char *argv[]) {
     int opt = -1;
     int inplaceThreshold = -1;
     bool outputHeuristicTable = false;
+    int output = outputSAS;
 
-    // parse command line arguments
     bool printhelp = false;
     if (argc < 3) {
         printhelp = true;
@@ -62,17 +66,27 @@ int main(int argc, char *argv[]) {
                 inplaceThreshold = stoi(sInplaceThreshold);
             } else if (arg.find("ht") == 0) {
                 outputHeuristicTable = true;
+            } else if (arg.find("output=") == 0) {
+                string sOutput = arg.substr(7);
+                if (sOutput.find("PDDL") == 0) {
+                    output = outputPDDL;
+                } else if (sOutput.find("FD-FDR") == 0) {
+                    output = outputSAS;
+                } else {
+                    cout << "ERROR: unknown output format: " << sOutput << endl;
+                }
             }
         }
     }
 
     if (printhelp){
-        cout << "usage: " << "toad [TD|TD-PO|BU-IO] <pandagrounding> [ipt=<INT>] [ht]" << endl;
-        cout << "- first specify used algorithm:" << endl;
+        cout << "usage: " << "toad <algorithm> <pandagrounding> [output=<...>] [ipt=<...>] [ht]" << endl;
+        cout << "- <algorithm> specifies the used algorithm, which must be one from the following." << endl;
         cout << "  - TD: top down like in ICAPS version" << endl;
         cout << "  - TD-PO: top down + post optimization" << endl;
         cout << "  - BU-IO: bottom up + intermediate optimization" << endl;
         cout << "- <pandagrounding> specifies a file containing the problem grounded with the PANDA system" << endl;
+        cout << "- output: specifies the used output format, which must be either FD-FDR (standard) or PDDL." << endl;
         cout << "- ipt: in the bottom-up construction, it can be beneficial to create certain automata inplace instead of creating" << endl;
         cout << "       and combining them. When a task appears in less that <ipt> methods, it is created inplace." << endl;
         cout << "- ht: if set, TOAD creates a file containing the FA goal distance for each state (used in a special heuristic in FD)" << endl;
@@ -181,17 +195,31 @@ int main(int argc, char *argv[]) {
     long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
 
+    if (outputHeuristicTable) {
+        cout << "- writing FA distance for each state (used in special FD heuristic)";
+        gettimeofday(&tp, NULL);
+        long startHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+
+        HeuFaDist hfa;
+        hfa.writeHeuristicLookupTable(fa);
+
+        gettimeofday(&tp, NULL);
+        long endHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << " [writingHfaLookUpTable=" << (endHFA - startHFA) << "]" << endl;
+    }
+
     //fa->showDOT();
     //fa->showDOT(htn->taskNames);
     string dFile2 = "domain.pddl";
     string pFile2 = "problem.sas";
 
-    SASWriter mw2;
-    mw2.write(htn, fa, dFile2, pFile2);
-
-//    ModelWriter mw;
-//    mw.write(htn, fa, dFile2, pFile2);
-
+    if (output == outputSAS) {
+        SASWriter mw2;
+        mw2.write(htn, fa, dFile2, pFile2);
+    } else if (output == outputPDDL) {
+        ModelWriter mw;
+        mw.write(htn, fa, dFile2, pFile2);
+    }
     return 0;
 }
 

@@ -38,7 +38,7 @@ void ModelWriter::write(Model *htn, fst::VectorFst <StdArc> *automaton, string d
     dfile.close();
     cout << "- done" << endl;
 
-    cout << "- writing domain file" << endl;
+    cout << "- writing problem file" << endl;
     ofstream pfile;
     pfile.open(pName);
     writeProblem(pfile, 0, 1);
