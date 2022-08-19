@@ -7,6 +7,7 @@
 #include "dfaLib/FA.h"
 #include "SASWriter.h"
 #include "ModelWriter.h"
+#include "translation/StateBasedReachability.h"
 #include <vector>
 #include <cassert>
 #include <sys/time.h>
@@ -15,6 +16,12 @@ vector<int> *mToRule(const Model *htn, int iM);
 
 using namespace std;
 using namespace progression;
+
+const int TD = 0;
+const int BU = 1;
+const int NoOpt = 2;
+const int PostOpt = 3;
+const int InterOpt = 4;
 
 int main(int argc, char *argv[]) {
 
@@ -29,18 +36,37 @@ int main(int argc, char *argv[]) {
     timeval tp;
 
     int seed = 42;
+    int algo = -1;
+    int opt = -1;
+    int inplaceThreshold = -1;
+
     bool printhelp = false;
-    if (argc < 2) {
+    if (argc < 4) {
         printhelp = true;
     } else {
         string str = argv[1];
-        s = argv[1];
-        if (argc == 3) seed = atoi(argv[2]);
+        if (str == "TD") {
+            algo = TD;
+            opt = NoOpt;
+        } else if (str == "TD-PO") {
+            algo = TD;
+            opt = PostOpt;
+        } else if (str == "BU-IO") {
+            algo = BU;
+            opt = InterOpt;
+        }
+        inplaceThreshold = atoi(argv[2]);
+        s = argv[3];
+        if (argc == 5) seed = atoi(argv[4]);
     }
 
     if (printhelp){
         cout << "usage:" << endl;
-        cout << "toad pandagrounding [seed]" << endl;
+        cout << "toad [TD|TD-PO|BU-IO] inplaceThreshold pandagrounding [seed]" << endl;
+        cout << "- TD: top down like in ICAPS version" << endl;
+        cout << "- TD-PO: top down + post optimization" << endl;
+        cout << "- TD-IO: top down + intermediate optimization" << endl;
+
         exit(-1);
     }
 
@@ -56,22 +82,11 @@ int main(int argc, char *argv[]) {
     Model *htn = new Model();
     htn->filename = s;
     htn->read(s);
-//    htn->calcSCCs();
     gettimeofday(&tp, NULL);
 
     long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [timePrepareModel=" << (endT - startT) << "]" << endl;
     startT = endT;
-
-
-
-//    // this is not TOAD <BEGIN>
-//    SASWriter mw3;
-//    string pFile3 = "problem.sas";
-//    mw3.write2(htn, 5, pFile3);
-//    exit(0);
-//    // this is not TOAD <END>
-
 
     /*
     * Building grammar
@@ -80,26 +95,6 @@ int main(int argc, char *argv[]) {
     CFGtoFDAtranslator *to2s = new CFGtoFDAtranslator();
     to2s->numSymbols = htn->numTasks;
     to2s->numTerminals = htn->numActions;
-
-    // initialize Ni sets
-//    to2s->NumNis = htn->numCyclicSccs;
-//    to2s->NiSize = new int[htn->numCyclicSccs];
-//    to2s->Ni = new int *[htn->numCyclicSccs];
-//    to2s->SymToNi = new int[to2s->numSymbols];
-//    for (int i = 0; i < to2s->numSymbols; i++) {
-//        to2s->SymToNi[i] = -1; // init as non-recursive
-//    }
-//
-//    cout << "- collecting SCC data" << endl;
-//    for (int k = 0; k < htn->numCyclicSccs; k++) {
-//        int scc = htn->sccsCyclic[k];
-//        to2s->NiSize[k] = htn->sccSize[scc];
-//        to2s->Ni[k] = new int[to2s->NiSize[k]];
-//        for (int j = 0; j < htn->sccSize[scc]; j++) {
-//            to2s->Ni[k][j] = htn->sccToTasks[scc][j];
-//            to2s->SymToNi[to2s->Ni[k][j]] = k;
-//        }
-//    }
 
     cout << "- adding methods as grammar rules" << endl;
     for (int iM = 0; iM < htn->numMethods; iM++) {
@@ -115,8 +110,7 @@ int main(int argc, char *argv[]) {
     cout << "- [timeHtnToGrammar=" << (endT - startT) << "]" << endl;
     startT = endT;
 
-    if (!to2s->isRegurlar) {
-        //to2s->printRules();
+    if (!to2s->isRegular) {
         CFtoRegGrammarEnc approx;
         cout << "- re-encode rules" << endl;
         approx.overapproximate(to2s, htn);
@@ -126,37 +120,61 @@ int main(int argc, char *argv[]) {
         to2s->calcSCCs(htn->initialTask);
         cout << "- re-analysing rules" << endl;
         to2s->analyseRules(true);
-        //to2s->printRules();
+        gettimeofday(&tp, NULL);
         endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         cout << "- [timeCfgToRegTransf=" << (endT - startT) << "]" << endl;
         startT = endT;
     }
-    //to2s->printRules();
 
-    gettimeofday(&tp, NULL);
+    /*
+     * Build FA
+     */
     long startB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "Building DFA" << endl;
-//    StdVectorFst* fa = to2s->makeFABU(htn, htn->initialTask); // snake 15
-    StdVectorFst* fa = to2s->makeFATD(htn, htn->initialTask);
-//    StdVectorFst* fa = to2s->makeFATDio(htn, htn->initialTask);
-
-    int old = 0;
-    while (old != fa->NumStates()) {
-        old = fa->NumStates();
-        StdVectorFst *fst2 = new StdVectorFst();
-        fst2->SetProperties(kAcceptor, true);
-
-        RmEpsilon(fa);
-        Determinize(*fa, fst2);
-        delete fa;
-        fa = fst2;
-        Minimize(fa);
-        cout << "pass " << old << " -> " << fa->NumStates() << endl;
+    StdVectorFst* fa;
+    if (algo == TD) {
+        bool interOpt = (opt == InterOpt);
+        fa = to2s->makeFATD(htn, htn->initialTask, inplaceThreshold, interOpt);
+    } else {
+        assert(algo == BU);
+        fa = to2s->makeFABU(htn, htn->initialTask);
     }
+#ifndef NDEBUG
+    Verify(*fa);
+#endif
 
+//    StateBasedReachability sbr;
+//    sbr.statePruning(htn, fa);
+//    cout << "- [aftersbp=" << fa->NumStates() << "]" << endl;
+
+    if ((opt == PostOpt) || (opt == InterOpt)) {
+        gettimeofday(&tp, NULL);
+        long beginPO = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        int oldSize = 0;
+        int optimizations = 0;
+        while (oldSize != fa->NumStates()) {
+            oldSize = fa->NumStates();
+            StdVectorFst *fst2 = new StdVectorFst();
+            fst2->SetProperties(kAcceptor, true);
+            RmEpsilon(fa);
+            Determinize(*fa, fst2);
+            delete fa;
+            fa = fst2;
+            Minimize(fa);
+            if (oldSize > fa->NumStates()) {
+                optimizations++;
+            }
+        }
+        cout << "- [roundsOfSuccOpt=" << optimizations << "]" << endl;
+        gettimeofday(&tp, NULL);
+        long endPO = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+        cout << "- [postOptimization=" << (endPO - beginPO) << "]" << endl;
+    }
+    cout << "- [numStatesFinal=" << fa->NumStates() << "]" << endl;
     gettimeofday(&tp, NULL);
     long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
+
     //fa->showDOT();
     //fa->showDOT(htn->taskNames);
     string dFile2 = "domain.pddl";

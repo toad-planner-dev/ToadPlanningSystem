@@ -11,8 +11,10 @@
 #include "FiniteAutomaton.h"
 #include "../htnModel/Model.h"
 #include "../dfaLib/FA.h"
+#include <fst/fstlib.h>
 
 using namespace std;
+using namespace fst;
 
 enum eRecursion {rNONE, rLEFT, rRIGHT, rSELF};
 
@@ -29,10 +31,6 @@ struct grRule {
 
 
 class CFGtoFDAtranslator {
-    int totalSubFAs = 0;
-    map<tLabelID, FA*> subDFAs;
-
-    unordered_map<int, int> subFANeededBy;
 
     int isTerminalSym(int a);
 
@@ -43,16 +41,27 @@ class CFGtoFDAtranslator {
     void determineRuleRecursion(grRule *r);
 
     void sortRules();
-//    StdVectorFst *fst myCombine()
     vector<bool> inplace;
     vector<int> tstack;
     unordered_set<int> done;
 
+    // temporal SCC information
+    int maxdfs; // counter for dfs
+    bool *U; // set of unvisited nodes
+    vector<int> *S; // stack
+    bool *containedS;
+    int *dfsI;
+    int *lowlink;
+    int numSCCs;
+    int *sccSize;
+    int numCyclicSccs;
+    int **sccToSym;
 
 public:
     virtual ~CFGtoFDAtranslator();
 
-    vector<int> taskToScc;
+    vector<int> symPreorder;
+
     // consts naming recursions of Ni
     const int recUnknown = 0;
     const int recLeft = 1;
@@ -81,16 +90,13 @@ public:
     int *SymToNi = nullptr; // mapping from symbol to Ni it belongs tos
     int *NiRec = nullptr;   // kind of recursion out of [recLeft, recRight, recSelf, recCycle]
 
-    // resulting finite automaton
-    FiniteAutomaton *dfa = new FiniteAutomaton;
-
     void addRule(std::vector<int> *pInt);
 
     void analyseRules(bool writeProtocol);
 
     void printRule(grRule *rule);
 
-    bool isRegurlar;
+    bool isRegular;
     bool printDebug = false;
 
     void quick(int l, int r);
@@ -109,24 +115,6 @@ public:
 
     StdVectorFst *makeFABU(Model *htn, int tinit);
 
-//    eRecursion * getRecInfo(const vector<int> *sccs);
-
-    map<int, FA *> FAs;
-    //eRecursion* recursion;
-    //vector<int> * sccs;
-    StdVectorFst *getFA(tLabelID alpha);
-
-    StdVectorFst *getFaNonRec(tLabelID  A);
-
-    StdVectorFst * getFaRightRec(tLabelID  A);
-
-    StdVectorFst *getFaLeftRec(tLabelID  A);
-
-
-    void statePruning(Model *htn, StdVectorFst *pFa);
-    void statePruning2(Model *htn, StdVectorFst *pFa);
-
-
     void addRule(StdVectorFst *fst, int from, int label, int to, int costs);
 
     int nextState(StdVectorFst *fst);
@@ -137,17 +125,13 @@ public:
 
     StdVectorFst *getNewFA();
 
-    StdVectorFst *makeFATD(Model *pModel, int i);
+    StdVectorFst *makeFATD(Model *pModel, int tInit, int inplaceThreshold, bool interOpt);
 
     void tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha, int q1);
     void tdMakeFA(StdVectorFst *fst, int q0, int A, int q1, bool top);
     void tdMakeFA(StdVectorFst *fst, int q0, int A, int q1);
 
-    StdVectorFst *makeFATDio(Model *htn, int init);
-    void tdMakeFAio(StdVectorFst *fst, int q0, int A, int q1, bool top);
-    void tdMakeFAio(StdVectorFst *fst, int q0, int A, int q1);
-
-    void detInplace(const Model *htn);
+    void detSymHandeledInplace(const Model *htn, int inplaceThreshold);
 
     StdVectorFst *tdMakeFA(int task);
 };

@@ -8,7 +8,6 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
-#include "../utils/IntPairHeap.h"
 #include <sys/time.h>
 
 void CFGtoFDAtranslator::addRule(vector<int> *r) {
@@ -355,7 +354,7 @@ void CFGtoFDAtranslator::analyseRules(bool writeProtocol) {
         if (writeProtocol) cout << " [rec=acyclic]";
         cout << endl;
         cout << "  - using exact translation." << endl;
-        this->isRegurlar = true;
+        this->isRegular = true;
     } else if (isRegular) {
         cout << "  - the instance is recursive, but not self-embedding, i.e. it is regular.";
         if (writeProtocol) cout << " [rec=nonSelfEmbedding]";
@@ -363,7 +362,7 @@ void CFGtoFDAtranslator::analyseRules(bool writeProtocol) {
         cout << "  - using exact translation.";
         if (writeProtocol) cout << " [alg=exact]";
         cout << endl;
-        this->isRegurlar = true;
+        this->isRegular = true;
     } else {
         cout << "  - the instance is recursive and self-embedding, i.e. it could not be shown that it is regular.";
         if (writeProtocol) cout << " [rec=selfEmbedding]";
@@ -371,7 +370,7 @@ void CFGtoFDAtranslator::analyseRules(bool writeProtocol) {
         cout << "  - using approximate translation.";
         if (writeProtocol) cout << " [alg=approximate]";
         cout << endl;
-        this->isRegurlar = false;
+        this->isRegular = false;
     }
 }
 
@@ -429,19 +428,6 @@ void CFGtoFDAtranslator::printRule(grRule *rule) {
     cout << endl;
 }
 
-
-// temporal SCC information
-int maxdfs; // counter for dfs
-bool *U; // set of unvisited nodes
-vector<int> *S; // stack
-bool *containedS;
-int *dfsI;
-int *lowlink;
-int numSCCs;
-int *sccSize;
-int numCyclicSccs;
-int **sccToSym;
-
 void CFGtoFDAtranslator::calcSCCs(int tinit) {
     cout << "- calculating SCCs..." << endl;
     maxdfs = 0;
@@ -457,10 +443,7 @@ void CFGtoFDAtranslator::calcSCCs(int tinit) {
         containedS[i] = false;
         SymToNi[i] = -1;
     }
-
-    for (int i = 0; i < numSymbols; i++) {
-        taskToScc.push_back(-1);
-    }
+    symPreorder.clear();
 
     tarjan(tinit); // this works only if there is a single initial task and all tasks are connected to that task
 
@@ -596,7 +579,9 @@ void CFGtoFDAtranslator::tarjan(int v) {
             S->pop_back();
             containedS[v2] = false;
             SymToNi[v2] = numSCCs;
-            taskToScc[v2] = numSCCs;
+            if (!isTerminalSym(v2)) {
+                symPreorder.push_back(v2);
+            }
         } while (v2 != v);
         numSCCs++;
     }
@@ -609,7 +594,6 @@ CFGtoFDAtranslator::~CFGtoFDAtranslator() {
     }
     delete[] Ni;
     delete[] SymToNi;
-    delete dfa;
     delete[] NiRec;
 }
 
@@ -622,970 +606,91 @@ void CFGtoFDAtranslator::printRules() {
 
 
 // *************************************************
-// * New Stuff
+// * Bottom up methods
 // *************************************************
 
-bool reduceSubFAs = true;
-bool reduceFinalFA = false;
-bool statebasedPruning = false;
-bool removeEpsilon = false;
-
 StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
-    detInplace(htn);
+    detSymHandeledInplace(htn, 10);
 
-    timeval tp;
     cout << "- building sub-automata..." << endl;
     unordered_map<int, const Fst<StdArc>*> subautomata;
 
-    cout << "init " << htn->initialTask << endl;
-    int maxScc = -1;
-    unordered_map<int, vector<int>> sccToTask;
+    timeval tp;
     gettimeofday(&tp, NULL);
     long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     long endT;
-    for (int i = 0; i < numSymbols; i++) {
-//        cout << i <<" -> " << taskToScc[i] << endl;
-        int scc = taskToScc[i];
-        if (scc > maxScc) {
-            maxScc = scc;
-        }
-        sccToTask[scc].push_back(i);
-    }
 
-//    ofstream myfile;
-//    myfile.open("tasks.dot");
-//    myfile << "digraph D {\n";
-//
-//    for (int t = 0; t < htn->numTasks; t++) {
-//        cout << t << " " << htn->taskNames[t] << endl;
-//        if (t < htn->numActions) continue;
-//        for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
-//            int m = htn->taskToMethods[t][mi];
-//            cout << " ->";
-//            for (int j = 0; j < htn->numSubTasks[m]; j++) {
-//                int st = htn->subTasks[m][j];
-//                cout << " " << st;
-//                myfile << "n" << t << " -> n" << st << "\n";
-//            }
-//            cout << endl;
-//        }
-//
-//    }
-//    myfile << "}\n";
-//    myfile.close();
-
-//    system("xdot tasks.dot &");
-
-
-
-//    myfile.open("dependencies.dot");
-//    myfile << "digraph D {\n";
-//
-//    for (int i = 0; i < numSCCs; i++) {
-//        cout << "SCC " << i << ":" << endl << " ";
-//        for (int t : sccToTask[i]) {
-//            cout << " " << t;
-//            if (t < htn->numActions) continue;
-//
-//            for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
-//                int m = htn->taskToMethods[t][mi];
-//                for (int j = 0; j < htn->numSubTasks[m]; j++) {
-//                    int st = htn->subTasks[m][j];
-//                    int stSCC = taskToScc[st];
-//                    myfile << "scc" << i << " -> scc" << stSCC << "\n";
-//                }
-//            }
-//        }
-//        cout << endl;
-//    }
-//    myfile << "}\n";
-//    myfile.close();
-//
-//    system("xdot dependencies.dot &");
-
-    vector<int> highestDependency;
-    set<int>* dependsOn = new set<int>[htn->numTasks];
-    for (int i = 0; i < numSCCs; i++) {
-        highestDependency.push_back(-1);
-    }
-    for (int t = htn->numActions; t < htn->numTasks; t++) {
-        int topSCC = taskToScc[t];
-        for (int mi = 0; mi < htn->numMethodsForTask[t]; mi++) {
-            int m = htn->taskToMethods[t][mi];
-            for (int j = 0; j < htn->numDistinctSTs[m]; j++) {
-                int st = htn->sortedDistinctSubtasks[m][j];
-                if (st < htn->numActions)
-                    continue;
-                int bottomSCC = taskToScc[st];
-                int storedSCC = highestDependency[bottomSCC];
-                if (storedSCC < topSCC) {
-                    highestDependency[bottomSCC] = topSCC;
-                }
-                if (taskToScc[t] != taskToScc[st]) {
-                    dependsOn[t].insert(st);
-                }
-            }
-        }
-    }
-
-//    for (int i = 0; i < numSCCs; i++) {
-//        cout << "scc" << i << ": " << highestDependency[i] << endl;
-//    }
-
-//    vector<int>* cleanUp[numSCCs]; // todo: too big
-//    for (int i = 0; i < numSCCs; i++) {
-//        const int h = highestDependency[i];
-//        if (h >= 0) {
-////            if (!inplace[i])
-//                cleanUp[h].push_back(i); // delete scc i after creating scc h
-//        }
-//    }
-
-//    int initalTask = sccToTask[maxScc][0];
-//    assert(initalTask == htn->initialTask);
-//    StdVectorFst* fst = getFA(initalTask);
-
-    int lastCleanup = -1;
     StdVectorFst* fstInit;
     double output = 0;
     cout << "  0%" << endl;
-    set<int> created;
-    set<int> deleted;
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
-    for (int iSCC = 0; iSCC < numSCCs; iSCC++) {
-        for (int iT = 0; iT < sccToTask[iSCC].size(); iT++) {
-            const int task  = sccToTask[iSCC][iT];
-            if ((task < htn->numActions) || (inplace[task]))
-                continue;
 
-            tstack.clear();
-            done.clear();
+    for (int i = 0; i < symPreorder.size(); i++) {
+        double current = 100.0 / symPreorder.size() * i;
+        if (current > (output + 10)) {
+            gettimeofday(&tp, NULL);
+            endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+            cout << " " << fixed << setprecision(0) << current << "% [" << fixed << setprecision(2) << (endT - startT) << "]" << endl;
+            output += 10;
+        }
 
-            StdVectorFst* fst = tdMakeFA(task);
-            StdVectorFst *fst2 = getNewFA();
+        const int sym = symPreorder[i];
+        if (inplace[sym]) continue;
+
+        tstack.clear();
+        StdVectorFst *fst = tdMakeFA(sym);
+
+        RmEpsilon(fst);
+        StdVectorFst *fst2 = getNewFA();
+        Determinize(*fst, fst2);
+        delete fst;
+        fst = fst2;
+        Minimize(fst);
+
+        label_fst_pairs.emplace_back(sym + 1, fst);
+
+        if (!tstack.empty())  { // combine
+            StdVectorFst *fstFull = getNewFA();
+            Replace(label_fst_pairs, fstFull, sym + 1, true);
+            label_fst_pairs.erase(label_fst_pairs.end());
+            delete fst;
+            fst = fstFull;
+
             RmEpsilon(fst);
+            fst2 = getNewFA();
             Determinize(*fst, fst2);
             delete fst;
             fst = fst2;
             Minimize(fst);
-//            showDOT(fst);
-            if (tstack.empty()) {
-                subautomata[task] = fst;
-                if (task == tinit)
-                    fstInit = fst;
-            } else { // combine
-                for (int dep: tstack){
-//                    assert(deleted.find(dep) == deleted.end());
-                    label_fst_pairs.emplace_back(dep + 1, subautomata[dep]);
-                }
-                label_fst_pairs.emplace_back(task + 1, fst);
-                StdVectorFst *fstFull = getNewFA();
-                Replace(label_fst_pairs, fstFull, task + 1, true);
-                label_fst_pairs.clear();
-
-                fst2 = getNewFA();
-                Determinize(*fstFull, fst2);
-                delete fstFull;
-                fstFull = fst2;
-                Minimize(fstFull);
-                RmEpsilon(fst2);
-                subautomata[task] = fstFull;
-                if (task == tinit)
-                    fstInit = fstFull;
-            }
-            created.insert(task);
-//            label_fst_pairs.erase(label_fst_pairs.end());
-//            label_fst_pairs.emplace_back(task + 1, fstFull);
-//            if (task == htn->initialTask) {
-//                fstInit = fstFull;
-//            }
-            //showDOT(fstFull);*/
+            label_fst_pairs.emplace_back(sym + 1, fst);
         }
-//        for (int i = lastCleanup + 1; i <= iSCC; i++) {
-//            for (int obsoleteScc: cleanUp[i]) {
-//                for (int obsTask: sccToTask[obsoleteScc]) {
-//                    if (inplace[obsTask]) continue;
-//                    //delete subautomata[obsTask];
-////                        assert(deleted.find(obsTask) == deleted.end());
-//                    deleted.insert(obsTask);
-//                }
-//            }
-//        }
-//        lastCleanup = iSCC;
-
-        double current = 100.0/sccToTask.size() * iSCC;
-        if (current > (output + 10)) {
-            gettimeofday(&tp, NULL);
-            endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-            cout << " " << fixed << setprecision(0) << current << "% ["<< fixed << setprecision(2) << (endT - startT) << "]" << endl;
-            output += 10;
+        if (sym == tinit) {
+            fstInit = fst;
+            assert(i == (symPreorder.size() - 1));
         }
     }
+
+    for (auto subFAs : label_fst_pairs) {
+        if (subFAs.first != (tinit + 1)) {
+            delete subFAs.second;
+        }
+    }
+
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "100%" << " [timeBuildFA=" << (endT - startT) << "]" << endl;
-    cout << "Created: " << created.size() << endl;
-    cout << "Deleted: " << deleted.size() << endl;
-    Verify(*fstInit);
 
-    startT = endT;
-//    showDOT(fstInit, htn->taskNames);
-
-    //fstInit = subautomata[tinit];
-    //fstInit = getNewFA();
-//    Replace(label_fst_pairs, fstInit, htn->initialTask + 1, true);
-//
-//    StdVectorFst *fst2 = getNewFA();
-//    Determinize(*fstInit, fst2);
-//    delete fstInit;
-//    fstInit = fst2;
-//    Minimize(fstInit);
-//    RmEpsilon(fstInit);
-//
-//    fst2 = getNewFA();
-//    Determinize(*fstInit, fst2);
-//    delete fstInit;
-//    fstInit = fst2;
-//    Minimize(fstInit);
-//    RmEpsilon(fstInit);
-//
-//    for (auto p : label_fst_pairs) {
-//        if (p.first != (htn->initialTask + 1)) {
-//            delete p.second;
-//        }
-//    }
-
-//    showDOT(fstInit);
-//    int start = (int)fstInit->NumStates();
-//    cout << "  - automaton has " << (int) fstInit->NumStates() << " states [faFullStates=" << (int) fstInit->NumStates() << "]." << endl;
-//
-//    //ArcMap(fstInit, RmWeightMapper<StdArc>());
-//    showDOT(fstInit);
-//    vector<TropicalWeightTpl<float>>* dist = new vector<TropicalWeightTpl<float>>();
-//    ShortestDistance(*fstInit, dist, true);
-//    for (int i = 0; i < dist->size(); i++) {
-//        cout << i << " " <<fixed << setprecision(2) <<  dist->at(i).Value() << endl;
-//    }
-
-
-    if (statebasedPruning) {
-        int startState = (int) fstInit->NumStates();
-        cout << "State-based Pruning" << endl;
-//        statePruning(htn, fstInit);
-        statePruning2(htn, fstInit);
-//        Connect(fstInit);
-        Minimize(fstInit);
-        int endState = (int) fstInit->NumStates();
-        double reduction = (100.0 / (double) startState * (double) endState);
-        cout << "- reduces states from " << startState << " to " << endState << " states [faStatebasedPruning=";
-        cout << fixed << setprecision(2)  << reduction << "]." << endl;
-
-        gettimeofday(&tp, NULL);
-        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << "- [timeStateBasedPruning=" << (endT - startT) << "]" << endl;
-        startT = endT;
-    }
-
-    /*
-    cout << "Creating heuristic lookup table" << endl;
-    int numStates = fstInit->NumStates();
-    set<int> final;
-    StdVectorFst* fstRev = getNewFA();
-    for (int i = 0; i < numStates; i++) {
-        fstRev->AddState();
-    }
-    for (StateIterator<StdVectorFst> siter(*fstInit); !siter.Done(); siter.Next()) {
-        int state_id = siter.Value();
-        if(fstInit->Final(state_id) == 0) {
-            final.insert(state_id);
-        }
-        for (ArcIterator<StdFst> aiter(*fstInit, state_id); !aiter.Done(); aiter.Next()) {
-            const StdArc &arc = aiter.Value();
-            addRule(fstRev,arc.nextstate, arc.ilabel, state_id, 0);
-        }
-    }
-
-//    showDOT(fstRev);
-    int* hVals = new int[numStates];
-    for (int i = 0; i < numStates; i++) {
-        hVals[i] = INT_MAX;
-    }
-    IntPairHeap heap(1000);
-    for(int sF : final) {
-        heap.add(0, sF);
-    }
-    while (!heap.isEmpty()) {
-        int costs = heap.topKey();
-        int state = heap.topVal();
-        heap.pop();
-        if (hVals[state] <= costs) {
-            continue;
-        }
-        hVals[state] = costs;
-        for (ArcIterator<StdFst> aiter(*fstRev, state); !aiter.Done(); aiter.Next()) {
-            const StdArc &arc = aiter.Value();
-            int newState = arc.nextstate;
-            int arcCosts = 1;
-            if (arc.ilabel == 0) {
-                arcCosts = 0;
-            }
-            int newCosts = costs + arcCosts;
-            if (newCosts < hVals[newState]) {
-                heap.add(newCosts, newState);
-            }
-        }
-    }
-//    for (int i = 0; i < numStates; i++) {
-//        cout << i << " " << hVals[i] << endl;
-//    }
-
-    ofstream hfile;
-    hfile.open("dfad.heuristic");
-    hfile << numStates << "\n";
-    for (int i = 0; i < numStates; i++) {
-        hfile << hVals[i] << "\n";
-    }
-    delete hVals;
-    hfile.close();
-    delete fstRev;
-    gettimeofday(&tp, NULL);
-    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-    cout << "- [hTable=" << (endT - startT) << "]" << endl;
-    startT = endT;
-*/
-//    unordered_map<int, StdVectorFst*> subFAs;
-//    double reduction = 0;
-//    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//    for (int i = this->numTerminals; i < this->numSymbols; i++) {
-//        StdVectorFst* fst = getFA(i);
-//        if (reduceSubFAs) {
-//            int start = (int) fst->NumStates();
-//            StdVectorFst *fst2 = getNewFA();
-//            Determinize(*fst, fst2);
-//            delete fst;
-//            fst = fst2;
-//            Minimize(fst);
-//            reduction += 100.0 / start * (int) fst->NumStates();
-//            if (i == this->numSymbols - 1) {
-//                if (reduceSubFAs) {
-//                    reduction /= (double) (numSymbols - numTerminals);
-//                    cout << "  - [avSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
-//                } else {
-//                    cout << "  - optimization of sub-automata disabled." << endl;
-//                }
-//            }
-//        }
-//        //showDOT(fst, htn->taskNames);
-//        label_fst_pairs.emplace_back(i + 1, fst);
-//        subFAs[i + 1] = fst;
-//    }
-//    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//    cout << "- [timeBuildSubFAs=" << (endT - startT) << "]" << endl;
-//    startT = endT;
-//
-//    cout << "- combining sub-automata..." << endl;
-//    set<int> include;
-//    for (int i = this->numTerminals; i < this->numSymbols; i++) {
-//        StdVectorFst *fst = subFAs[i];
-//        bool onlyPrim = true;
-//        for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
-//            int state_id = siter.Value();
-//            for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
-//                const StdArc &arc = aiter.Value();
-//                const int action = arc.ilabel;
-//                if (action >= htn->numActions) {
-//                    onlyPrim = false;
-//                    break;
-//                }
-//            }
-//            if (!onlyPrim) {
-//                break;
-//            }
-//        }
-//        if (onlyPrim) {
-//            include.insert(i);
-//        }
-//    }
-//    // now include contains nonterminals mapped to solely primitives
-////    while (true) {
-////        label_fst_pairs.clear();
-////
-////
-////    }
-//    StdVectorFst* fst = getNewFA();
-//    Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
-//    for (auto subFA : label_fst_pairs) {
-//        delete subFA.second;
-//    }
-//    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//    cout << "- [timeBuildFA=" << (endT - startT) << "]" << endl;
-//    startT = endT;
-//
-//    int start = (int)fst->NumStates();
-//    cout << "  - automaton has " << (int) fst->NumStates() << " states [faFullStates=" << (int) fst->NumStates() << "]." << endl;
-//    if (statebasedPruning || removeEpsilon) {
-//        cout << "- remove epsilons" << endl;
-//        RmEpsilon(fst);
-//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//        cout << "- [timeRemoveEpsilon=" << (endT - startT) << "]" << endl;
-//        startT = endT;
-//    }
-//    if (reduceFinalFA || statebasedPruning) {
-//        cout << "- make deterministic" << endl;
-//        StdVectorFst *fst2 = getNewFA();
-//        Determinize(*fst, fst2);
-//        delete fst;
-//        fst = fst2;
-//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//        cout << "- [timeDeterminize=" << (endT - startT) << "]" << endl;
-//        startT = endT;
-//
-//        cout << "  - automaton has " << (int) fst->NumStates() << " states." << endl;
-//        cout << "- minimize automaton" << endl;
-//        Minimize(fst);
-//        cout << "- automaton has " << (int) fst->NumStates() << " states [faFinalStates=" << (int) fst->NumStates() << "]." << endl;
-////        reduction = 100.0 / start * (int) fst->NumStates();
-//        endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-//        cout << "- [timeMinimize=" << (endT - startT) << "]" << endl;
-//        startT = endT;
-//    }
-////    StdVectorFst* fst3 = getNewFA();
-////    ShortestPath(*fa->fst, fst3, 10);
-////    fa->fst = fst3;
-////    cout << "- automaton has " << (int)fst->NumStates() << " states." << endl;
-////    showDOT(fst, htn->taskNames);
-////    showDOT(fst);
-
-//    if (reduceFinalFA || statebasedPruning) {
-//        cout << "- [finalSizeReduction=" << fixed << setprecision(2) << (100.0 - reduction) << "]" << endl;
-//    }
-//    showDOT(fst, htn->taskNames);
     cout << "final automaton has " << (int) fstInit->NumStates() << " states [faFinalStates=" << (int) fstInit->NumStates() << "]." << endl;
     return fstInit;
 }
 
-StdVectorFst *CFGtoFDAtranslator::getFA(tLabelID alpha) {
-    //cout << "processing alpha " << alpha << endl;
-    totalSubFAs++;
-    StdVectorFst *fa = getNewFA();
-    if (alpha == Epsilon) {
-        fa->AddState();
-        fa->AddState();
-        fa->SetStart(0);
-        fa->SetFinal(1, 0);
-        addRule(fa, 0, epsilon, 1, 0);
-    } else {
-        int Nj = SymToNi[alpha];
-        if (SymToNi[alpha] == -1) {
-            fa = getFaNonRec(alpha);
-        } else if (NiRec[Nj] == recLeft) {
-            fa = getFaLeftRec(alpha);
-        } else {
-            fa = getFaRightRec(alpha);
-        }
-    }
-    return fa;
-}
-
-StdVectorFst *CFGtoFDAtranslator::getFaNonRec(tLabelID A) {
-    StdVectorFst* fa = getNewFA();
-    int s0 = nextState(fa);
-    fa->SetStart(s0);
-    int sF = nextState(fa);
-    fa->SetFinal(sF, 0);
-
-    for (int j = rFirst[A]; j <= rLast[A]; j++) {
-//          printRule(rules[j]);
-        assert(!isTerminalSym(A));
-        assert(rules[j]->left == A);
-        int lastState = s0;
-        for (int k = 0; k < rules[j]->rLength; k++) {
-            int label = rules[j]->right[k];
-            if (k < rules[j]->rLength - 1) {
-                int newState = nextState(fa);
-                addRule(fa, lastState, label, newState, 1);
-                lastState = newState;
-            } else {
-                addRule(fa, lastState, label, sF, 1);
-            }
-        }
-    }
-    return fa;
-}
-
-StdVectorFst *CFGtoFDAtranslator::getFaLeftRec(tLabelID A) {
-    int Nj = SymToNi[A];
-    StdVectorFst *fa = getNewFA();
-
-    int s0 = nextState(fa);
-    fa->SetStart(s0);
-    int sF = nextState(fa);
-    fa->SetFinal(sF, 0);
-
-    map<int, int> symToState;
-    symToState.insert({A, sF});
-    for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
-        int C = Ni[Nj][i];
-        if (C != A) {
-            symToState.insert({C, nextState(fa)});
-        }
-    }
-
-    for (int i = 0; i < NiSize[Nj]; i++) {
-        int C = Ni[Nj][i];
-        for (int l = rFirst[C]; l <= rLast[C]; l++) {
-            // need to detect whether this is a recursive method or not
-            grRule *rule = rules[l];
-            assert(rule->left == C);
-            assert(SymToNi[C] == Nj);
-            int D = rule->right[0]; // first right-hand side
-            int Nk = -1;
-            if (D != epsilon) {
-                Nk = SymToNi[D];
-            }
-            int k;
-            int lastState;
-            if (Nj != Nk) { // non-recursive
-                k = 0;
-                lastState = s0;
-            } else { // recursive
-                k = 1; // first one is in same Nj
-                lastState = symToState[D];
-
-                // when the only sign is also in the SCC, the "rest" is empty
-                if (rule->rLength == 1) {
-                    addRule(fa, symToState[D], epsilon, symToState[C], 1);
-                }
-            }
-            for (; k < rule->rLength; k++) {
-                int label = rule->right[k];
-                int target;
-                if (k < rule->rLength - 1) {
-                    target = nextState(fa);
-                } else {
-                    target = symToState[C];
-                }
-                addRule(fa, lastState, label, target, 1);
-                lastState = target;
-            }
-        }
-    }
-    return fa;
-}
-
-StdVectorFst * CFGtoFDAtranslator::getFaRightRec(tLabelID A) {
-    int Nj = SymToNi[A];
-    StdVectorFst *fa = getNewFA();
-
-    map<int, int> symToState;
-    int s0 = nextState(fa);
-    fa->SetStart(s0);
-    int sF = nextState(fa);
-    fa->SetFinal(sF, 0);
-
-    symToState.insert({A, s0});
-
-    for (int i = 0; i < NiSize[Nj]; i++) { // create new state features
-        int C = Ni[Nj][i];
-        if (C != A) {
-            symToState.insert({C, nextState(fa)});
-        }
-    }
-
-    for (int i = 0; i < NiSize[Nj]; i++) {
-        int C = Ni[Nj][i];
-        for (int l = rFirst[C]; l <= rLast[C]; l++) {
-            // need to detect whether this is a recursive method or not
-            grRule *rule = rules[l];
-//            printRule(rule);
-            assert(rule->left == C);
-            assert(SymToNi[C] == Nj);
-            int D = rule->right[rule->rLength - 1]; // last right-hand side
-            int Nk = -1;
-            if (D != epsilon) { // might be epsilon
-                Nk = SymToNi[D];
-            }
-            bool isRecursive = (Nj == Nk);
-            int proceedTo = rule->rLength;
-            if (isRecursive) { // last symbol not processed
-                proceedTo--;
-
-                // when the only sign is also in the SCC, the "rest" is empty
-                if (proceedTo == 0) {
-                    addRule(fa, symToState[C], epsilon, symToState[D], 1);
-                }
-            }
-            int lastState = symToState[C];
-            for (int k = 0; k < proceedTo; k++) {
-                int label = rule->right[k];
-                if (k < proceedTo - 1) {
-                    int newState = nextState(fa);
-                    addRule(fa, lastState, label, newState, 1);
-                    lastState = newState;
-                } else {
-                    int target;
-                    if (!isRecursive) {
-                        target = sF;
-                    } else {
-                        target = symToState[D];
-                    }
-                    addRule(fa, lastState, label, target, 1);
-                }
-            }
-        }
-    }
-    return fa;
-}
-
-void CFGtoFDAtranslator::statePruning2(Model *htn, StdVectorFst *fst) {
-    cout << "- expensive state-based pruning" << endl;
-//    showDOT(fst);
-    const int numStates = fst->NumStates();
-    // initial one dr state per dfa state
-    vector<bool> *drState = new vector<bool>[numStates];
-    for (int i = 0; i < numStates; i++) {
-        for (int j = 0; j < htn->numStateBits; j++) {
-            drState[i].push_back(false);
-        }
-    }
-    for (int i = 0; i < htn->s0Size; i++) {
-        int f = htn->s0List[i];
-        drState[0][f] = true;
-    }
-
-    vector<int> fringe;
-    set<int> inFringe;
-    fringe.push_back(0);
-    inFringe.insert(0);
-    while (!fringe.empty()) {
-        int s = fringe.back();
-        fringe.pop_back();
-        inFringe.erase(s);
-        for (ArcIterator<StdFst> aiter(*fst, s); !aiter.Done(); aiter.Next()) {
-            const StdArc &arc = aiter.Value();
-            int a = arc.ilabel - 1;
-            int s2 = arc.nextstate;
-            bool applicable = true;
-            for (int i = 0; i < htn->numPrecs[a]; i++) {
-                int f = htn->precLists[a][i];
-                if (!drState[s][f]) {
-                    applicable = false;
-                    break;
-                }
-            }
-            bool changed = false;
-            if (applicable) {
-                for (int i = 0; i < htn->numAdds[a]; i++) {
-                    int f = htn->addLists[a][i];
-                    if (!drState[s2][f]) {
-                        drState[s2][f] = true;
-                        changed = true;
-                    }
-                }
-                for (int f = 0; f < htn->numStateBits; f++) { // progress rest of state
-                    if (drState[s][f] && !drState[s2][f]) {
-                        drState[s2][f] = true;
-                        changed = true;
-                    }
-                }
-            }
-            if (changed) {
-                if (inFringe.find(s2) == inFringe.end()) {
-                    fringe.push_back(s2);
-                    inFringe.insert(s2);
-                }
-            }
-        }
-    }
-    // pruning
-    int prunedArcs = 0;
-    int otherArcs = 0;
-    vector<int> arcs;
-    for (int s = 0; s < numStates; s++) {
-        arcs.clear();
-        for (ArcIterator<StdFst> aiter(*fst, s); !aiter.Done(); aiter.Next()) {
-            const StdArc &arc = aiter.Value();
-            int a = arc.ilabel - 1;
-            bool applicable = true;
-            for (int i = 0; i < htn->numPrecs[a]; i++) {
-                int f = htn->precLists[a][i];
-                if (!drState[s][f]) {
-                    applicable = false;
-                    break;
-                }
-            }
-            if (applicable) {
-                arcs.push_back(arc.ilabel - 1);
-                arcs.push_back(arc.nextstate);
-                otherArcs++;
-            } else {
-                prunedArcs++;
-            }
-        }
-        fst->DeleteArcs(s);
-        for (int i = 0; i < arcs.size(); i+=2) {
-            addRule(fst, s, arcs[i], arcs[i + 1], 0);
-        }
-    }
-    delete[] drState;
-    cout << "- pruned " << prunedArcs << " of " << (prunedArcs + otherArcs) << " arcs." << endl;
-//    showDOT(fst);
-}
-
-void CFGtoFDAtranslator::statePruning(Model *htn, StdVectorFst *fst) {
-    const int numStates = fst->NumStates();
-    set<int>* incommingActions = new set<int>[numStates];
-    for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
-        int state_id = siter.Value();
-        for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
-            const StdArc &arc = aiter.Value();
-            incommingActions[arc.nextstate].insert(arc.ilabel - 1);
-        }
-    }
-    set<int>* accumState = new set<int>;
-    set<int>* actionInv = new set<int>;
-    vector<int> arcs;
-    for (int state = 0; state < numStates; state++) {
-        if (state == fst->Start()) {
-            continue;
-        }
-        accumState->clear();
-        bool first = true;
-        if (!incommingActions[state].empty()) {
-            for (int action : incommingActions[state]) {
-                actionInv->clear();
-                if (action != epsilon) {
-                    // preconditions that are not changed
-                    for (int i = 0; i < htn->numPrecs[action]; i++) {
-                        int prec = htn->precLists[action][i];
-                        actionInv->insert(prec);
-                    }
-                    // effects
-                    for (int i = 0; i < htn->numDels[action]; i++) {
-                        int del = htn->delLists[action][i];
-                        actionInv->erase(del);
-                    }
-                    for (int i = 0; i < htn->numAdds[action]; i++) {
-                        int add = htn->addLists[action][i];
-                        actionInv->insert(add);
-                    }
-                }
-                if (first) {
-                    first = false;
-                    accumState->insert(actionInv->begin(), actionInv->end());
-                } else { // intersect
-                    for (auto iter = accumState->begin(); iter != accumState->end();) {
-                        int p = *iter;
-                        if (actionInv->find(p) == actionInv->end()) {
-                            iter = accumState->erase(iter);
-                        } else {
-                            ++iter;
-                        }
-                    }
-                }
-            }
-            if (!accumState->empty()) {
-                arcs.clear();
-                for (ArcIterator<StdFst> aiter(*fst, state); !aiter.Done(); aiter.Next()) {
-                    const StdArc &arc = aiter.Value();
-                    int action = arc.ilabel - 1;
-                    bool applicable = true;
-                    for (int i = 0; i < htn->numPrecs[action]; i++) {
-                        int p = htn->precLists[action][i];
-                        int var = htn->bitToVar[p];
-                        for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
-                            if ((j != p) && (accumState->find(j) != accumState->end())) {
-                                applicable = false;
-                                break;
-                            }
-                        }
-                        if (!applicable) {
-                            break;
-                        }
-                    }
-                    if (applicable) {
-                        arcs.push_back(arc.ilabel - 1);
-                        arcs.push_back(arc.nextstate);
-                    }
-                }
-                fst->DeleteArcs(state);
-                for (int i = 0; i < arcs.size(); i+=2) {
-                    addRule(fst, state, arcs[i], arcs[i + 1], 0);
-                }
-            }
-        }
-    }
-//    pFa->delta->ensureBW(); // label -> (to -> from)
-//    unordered_map<tStateID, set<int>*> pStates; // partial state that holds with certainty
-//    for (auto l : *pFa->delta->backward) {
-//        if(l.first == epsilon)
-//            continue;
-//        for (auto to : *l.second) {
-//            if (pStates.find(to.first) == pStates.end()) {
-//                set<int>* accumState = new set<int>;
-//                pStates.insert({to.first, accumState});
-//                int action = l.first;
-//
-//                // preconditions that are not changed
-//                for (int i = 0; i < htn->numPrecs[action]; i++) {
-//                    int prec = htn->precLists[action][i];
-//                    accumState->insert(prec);
-//                }
-//                // effects
-//                for (int i = 0; i < htn->numDels[action]; i++) {
-//                    int del = htn->delLists[action][i];
-//                    accumState->erase(del);
-//                }
-//                for (int i = 0; i < htn->numAdds[action]; i++) {
-//                    int add = htn->addLists[action][i];
-//                    accumState->insert(add);
-//                }
-//            } else {
-//                set<int>* accumState = pStates.find(to.first)->second;
-//                if (accumState == nullptr) {
-//                    continue;
-//                }
-//                // intersect old set with (unchanged precs \cup add effects)
-//                set<int>* tempPState = new set<int>;
-//                int action = l.first;
-//
-//                // preconditions that are not changed
-//                for (int i = 0; i < htn->numPrecs[action]; i++) {
-//                    int prec = htn->precLists[action][i];
-//                    tempPState->insert(prec);
-//                }
-//                // effects
-//                for (int i = 0; i < htn->numDels[action]; i++) {
-//                    int del = htn->delLists[action][i];
-//                    tempPState->erase(del);
-//                }
-//                for (int i = 0; i < htn->numAdds[action]; i++) {
-//                    int add = htn->addLists[action][i];
-//                    tempPState->insert(add);
-//                }
-//                for(auto iter = accumState->begin(); iter != accumState->end(); ) {
-//                    int p = *iter;
-//                    if (tempPState->find(p) == tempPState->end()) {
-//                        iter = accumState->erase(iter);
-//                    } else {
-//                        ++iter;
-//                    }
-//                }
-//                delete tempPState;
-//
-//                if (accumState->empty()) { // closed
-//                    delete accumState;
-//                    pStates.at(to.first) = nullptr;
-//                }
-//            }
-//        }
-//    }
-////    cout << endl;
-////    for (auto accumState : pStates) {
-////        if (accumState.second == nullptr) {
-////            continue;
-////        }
-////        cout << accumState.first <<  ":";
-////        for(int p : *accumState.second) {
-////            cout << " " << htn->factStrs[p];
-////        }
-////         cout << endl;
-////    }
-////    cout << endl;
-//
-//    pFa->delta->ensureFW(); // from -> (label -> to)
-//    for (auto iter2 = pFa->delta->forward->begin(); iter2 != pFa->delta->forward->end();) {
-//        auto from = *iter2;
-//        if (pFa->sInit.find(from.first) !=pFa->sInit.end()) {
-//            iter2++;
-//            continue;
-//        }
-//        if ((pStates.find(from.first) == pStates.end()) || (pStates.find(from.first)->second == nullptr)) {
-//            iter2++;
-//            continue;
-//        }
-//
-//        set<int> accumState = *pStates.find(from.first)->second;
-//
-//        bool totallyEmpty = false;
-//        for (auto iter = from.second->begin(); iter != from.second->end(); ) {
-//            auto actions = *iter;
-//            bool applicable = true;
-//            int action = actions.first;
-//            if(action == epsilon) {
-//                iter++;
-//                continue;
-//            }
-//            for (int i = 0; i < htn->numPrecs[action]; i++) {
-//                int p = htn->precLists[action][i];
-//                int var =  htn->bitToVar[p];
-//                for (int j = htn->firstIndex[var]; j <= htn->lastIndex[var]; j++) {
-//                    if ((j != p) && (accumState.find(j) != accumState.end())) {
-//                        applicable = false;
-//                        break;
-//                    }
-//                }
-//                if (!applicable) {
-//                    break;
-//                }
-//            }
-//            if (!applicable) {
-//                delete actions.second;
-//                iter = from.second->erase(iter);
-//                pFa->delta->numTransitions--;
-//                if (from.second->empty()) {
-//                    iter2 = pFa->delta->forward->erase(iter2);
-//                    totallyEmpty = true;
-//                    break;
-//                }
-//            } else {
-//                iter++;
-//            }
-//        }
-//        if (!totallyEmpty) {
-//            iter2++;
-//        }
-//    }
-//    for (auto accumState : pStates) {
-//        delete accumState.second;
-//    }
-}
-
 void CFGtoFDAtranslator::addRule(StdVectorFst *fst, int from, int label, int to, int costs) {
-//    for (ArcIterator<StdFst> aiter(*fst, from); !aiter.Done(); aiter.Next()) {
-//        const StdArc &arc = aiter.Value();
-//        if(arc.ilabel == label) {
-//            arc.nextstate;
-//        }
-//    }
     fst->AddArc(from, StdArc(label + 1, label + 1, 0, to));
 }
 
 int CFGtoFDAtranslator::nextState(StdVectorFst *fst) {
     fst->AddState();
     return fst->NumStates() - 1;
-}
-
-void CFGtoFDAtranslator::showDOT(StdVectorFst *fst) {
-    system("rm binary.fst");
-    fst->Write("binary.fst");
-    system("fstdraw binary.fst binary.dot"); //  --acceptor=true
-    system("xdot binary.dot &");
-}
-
-void CFGtoFDAtranslator::showDOT(StdVectorFst *fst, string *taskNames) {
-    ofstream myfile;
-    myfile.open("syms.txt");
-    myfile << "<eps> 0\n";
-    for(int i = 0; i < this->numSymbols; i++) {
-        myfile << taskNames[i] << " " << (i + 1) << "\n";
-    }
-    myfile.close();
-
-    system("rm binary.fst");
-    fst->Write("binary.fst");
-    system("fstdraw --acceptor=true --isymbols=syms.txt --osymbols=syms.txt binary.fst binary.dot");
-    system("xdot binary.dot &");
 }
 
 StdVectorFst *CFGtoFDAtranslator::getNewFA() {
@@ -1595,87 +700,21 @@ StdVectorFst *CFGtoFDAtranslator::getNewFA() {
 }
 
 
-//
-//eRecursion * CFGtoFDAtranslator::getRecInfo(const vector<int> *sccs) {
-//    eRecursion* recursion = new eRecursion[numSCCs];
-//    for(int i = 0; i < numSCCs; i++) {
-//        bool leftGen = false;
-//        bool rightGen = false;
-//        for (int C : sccs[i]) {
-//            for (int l = rFirst[C]; l <= rLast[C]; l++) {
-//                printRule(rules[l]);
-//                leftGen = leftGen || rules[l]->isLeftGenerating;
-//                rightGen = rightGen || rules[l]->isRightGenerating;
-//                if (leftGen && rightGen) {
-//                    break;
-//                }
-//            }
-//            if (leftGen && rightGen) {
-//                break;
-//            }
-//        }
-//        if (leftGen && rightGen) {
-//            recursion[i] = rSELF;
-//            cout << "scc" << i << " " << "self" << endl;
-//        } else if(leftGen) {
-//            recursion[i] = rRIGHT;
-//            cout << "scc" << i << " " << "right" << endl;
-//        } else if(rightGen) {
-//            recursion[i] = rLEFT;
-//            cout << "scc" << i << " " << "left" << endl;
-//        } else {
-//            recursion[i] = rNONE;
-//            //cout << "scc" << i << " " << "none" << endl;
-//        }
-//    }
-//    return recursion;
-//}
+StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init, int inplaceThreshold, bool interOpt) {
 
-
-/*
-// want to delete FA as early as possible, calc how long they are needed
-int* keepUntil = new int[numSymbols];
-for(int i = 0; i < numSymbols; i++) {
-    keepUntil[i] = -1;
-}
-for(int i = 0; i < numSCCs; i++) {
-    // go through rules, when a rule for a task in scc i uses task x, x needs to be kept until after scc i
-    for (int C : sccs[i]) {
-        for (int l = rFirst[C]; l <= rLast[C]; l++) {
-            for (int j = 0; j < rules[l]->rLength; j++) {
-                int sym = rules[l]->right[j];
-                keepUntil[sym] = i;
-            }
-        }
-    }
-}
-for(int i = 0; i < numSymbols; i++) {
-    cout << "keep " << i << " until after scc " << keepUntil[i] << endl;
-}
-*/
-
-
-
-
-
-
-
-
-
-
-
-//////////////////////////////////////
-
-
-StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
-    detInplace(htn);
+    detSymHandeledInplace(htn, interOpt);
 
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
+    tstack.clear();
+    done.clear();
     tstack.push_back(init);
     done.insert(init);
-    cout << "abstract tasks: " << (htn->numTasks - htn->numActions) << endl;
+
+    cout << "- building sub-FAs" << endl;
+    timeval tp;
+    gettimeofday(&tp, NULL);
+    long startT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     while (!tstack.empty()) {
-        //cout << "done: " << done.size() << "; stack: " << tstack.size() << endl;
         int task = tstack[tstack.size() - 1];
         tstack.pop_back();
 
@@ -1685,99 +724,63 @@ StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init) {
         int sFinal = nextState(fst);
         fst->SetFinal(sFinal, 0);
         tdMakeFA(fst, sInit, task, sFinal, true);
-        //showDOT(fst);
-        
-        StdVectorFst *fst2 = getNewFA();
-        Determinize(*fst, fst2);
-        delete fst;
-        fst = fst2;
-        Minimize(fst);
-        RmEpsilon(fst);
 
+        if (interOpt) {
+            RmEpsilon(fst);
+            StdVectorFst *fst2 = getNewFA();
+            Determinize(*fst, fst2);
+            delete fst;
+            fst = fst2;
+            Minimize(fst);
+        }
         label_fst_pairs.emplace_back(task + 1, fst);
     }
+    cout << "  - [numSubFAs=" << label_fst_pairs.size() << "]" << endl;
+    gettimeofday(&tp, NULL);
+    long endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << "  - [timeBuildingSubFAs=" << (endT - startT) << "]" << endl;
+    startT = endT;
+
+    cout << "- combining sub-FAs.";
     StdVectorFst* fst = getNewFA();
-    cout << "sub-automata: " << label_fst_pairs.size() << endl;
     Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
-
-    //Verify(*fst);
-    //showDOT(fst);
-    cout << "States: " << fst->NumStates() << endl;
-
-    StdVectorFst *fst2 = getNewFA();
-    RmEpsilon(fst);
-    Determinize(*fst, fst2);
-    delete fst;
-    fst = fst2;
-    Minimize(fst);
-    cout << "States: " << fst->NumStates() << endl;
-
-//    fst2 = getNewFA();
-//    Determinize(*fst, fst2);
-//    delete fst;
-//    fst = fst2;
-//    Minimize(fst);
-//    RmEpsilon(fst);
-//    cout << "States: " << fst->NumStates() << endl;
-//
-//    fst2 = getNewFA();
-//    Determinize(*fst, fst2);
-//    delete fst;
-//    fst = fst2;
-//    Minimize(fst);
-//    RmEpsilon(fst);
-//    cout << "States: " << fst->NumStates() << endl;
-
+    gettimeofday(&tp, NULL);
+    endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
+    cout << " [timeCombiningSubFAs=" << (endT - startT) << "]" << endl;
+    cout << "- [numStatesRAW=" << fst->NumStates() << "]" << endl;
     return fst;
 }
 
-void CFGtoFDAtranslator::detInplace(const Model *htn) {
-    vector<int> occurances;
-    for (int i = 0; i < htn->numTasks; i++) {
-        occurances.push_back(0);
+void CFGtoFDAtranslator::detSymHandeledInplace(const Model *htn, int inplaceThreshold) {
+    unordered_map<int, int>* occurances = new unordered_map<int, int>();
+    for (int i = numTerminals; i < numSymbols; i++) {
+        occurances->insert(make_pair(i, 0));
     }
-
-    for (int i = 0; i < htn->numMethods; i++) {
-        for (int j = 0; j < htn->numSubTasks[i]; j++) {
-            const int t = htn->subTasks[i][j];
-            occurances[t]++;
+    for (int i = 0; i < this->numRules; i++) {
+        for (int j = 0; j < rules[i]->rLength; j++) {
+            const int t = rules[i]->right[j];
+            if ((t != epsilon) && (!isTerminalSym(t))) {
+                occurances->at(t)++;
+            }
         }
     }
-    vector<int> hist;
-    for (int i = numTerminals; i < htn->numTasks; i++) {
-        int occ = occurances[i];
-        while (occ >= hist.size()) {
-            hist.push_back(0);
-        }
-        hist[occ]++;
-    }
+//    vector<int> hist;
+//    for (int i = numTerminals; i < numSymbols; i++) {
+//        int occ = occurances->at(i);
+//        while (occ >= hist.size()) {
+//            hist.push_back(0);
+//        }
+//        hist[occ]++;
+//    }
 //    for (int i = 0; i < hist.size(); i++) {
 //        cout << i << ": " << hist[i] << " times" << endl;
 //    }
-    for (int i = 0; i < htn->numTasks; i++) {
-        inplace.push_back(occurances[i] < 10);
+    inplace.resize(numSymbols, false);
+    for (int i = numTerminals; i <numSymbols; i++) {
+        inplace[i] = (occurances->at(i) < inplaceThreshold);
     }
     inplace[htn->initialTask] = false; // this does not make sense
-//    cout << "not inplace:";
-//    for (int i = 0; i < htn->numTasks; i++) {
-//        if (!inplace[i]){
-//            cout << " " << i;
-//        }
-//    }
-//    cout << endl;
 }
-
-
-//void CFGtoFDAtranslator::addRule(vector<int> *r) {
-//    grRule *r2 = new grRule();
-//    r2->left = r->at(0);
-//    r2->rLength = r->size() - 1;
-//    r2->right = new int[r2->rLength];
-//    for (int i = 1; i < r->size(); i++) {
-//        r2->right[i - 1] = r->at(i);
-//    }
-//    tempRules.push_back(r2);
-//}
 
 StdVectorFst * CFGtoFDAtranslator::tdMakeFA(int task) {
     StdVectorFst *fst = getNewFA();
@@ -1795,7 +798,6 @@ void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, vector<int> *alpha,
         tdMakeFA(fst, q0, alpha->at(0), q1);
     } else if (alpha->size() > 1) {
         int q = nextState(fst);
-//        cout << "++" << endl;
         int X = alpha->at(0);
         vector<int> *beta = new vector<int>;
         for (int i = 1; i < alpha->size(); i++)
@@ -1831,7 +833,6 @@ void CFGtoFDAtranslator::tdMakeFA(StdVectorFst *fst, int q0, int A, int q1, bool
             for (int j = 0; j < NiSize[Nl]; j++) {
                 int task = Ni[Nl][j];
                 int id = fst->AddState();
-//                cout << "++" << endl;
                 qB[task] = id;
             }
 
@@ -1910,4 +911,26 @@ vector<int> *CFGtoFDAtranslator::copySubSeq(grRule *in, int from, int to) {
         out->push_back(in->right[i]);
     }
     return out;
+}
+
+void CFGtoFDAtranslator::showDOT(StdVectorFst *fst) {
+    system("rm binary.fst");
+    fst->Write("binary.fst");
+    system("fstdraw binary.fst binary.dot"); //  --acceptor=true
+    system("xdot binary.dot &");
+}
+
+void CFGtoFDAtranslator::showDOT(StdVectorFst *fst, string *taskNames) {
+    ofstream myfile;
+    myfile.open("syms.txt");
+    myfile << "<eps> 0\n";
+    for(int i = 0; i < this->numSymbols; i++) {
+        myfile << taskNames[i] << " " << (i + 1) << "\n";
+    }
+    myfile.close();
+
+    system("rm binary.fst");
+    fst->Write("binary.fst");
+    system("fstdraw --acceptor=true --isymbols=syms.txt --osymbols=syms.txt binary.fst binary.dot");
+    system("xdot binary.dot &");
 }
