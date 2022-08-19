@@ -32,7 +32,6 @@ int main(int argc, char *argv[]) {
     string sProblemFile;
     timeval tp;
 
-    int seed = 42;
     int algo = -1;
     int opt = -1;
     int inplaceThreshold = -1;
@@ -61,9 +60,6 @@ int main(int argc, char *argv[]) {
             if (arg.find("ipt=") == 0) {
                 string sInplaceThreshold = arg.substr(4);
                 inplaceThreshold = stoi(sInplaceThreshold);
-            } else if (arg.find("seed=") == 0) {
-                string sSeed = arg.substr(5);
-                seed = stoi(sSeed);
             } else if (arg.find("ht") == 0) {
                 outputHeuristicTable = true;
             }
@@ -71,18 +67,17 @@ int main(int argc, char *argv[]) {
     }
 
     if (printhelp){
-        cout << "usage:" << endl;
-        cout << "toad [TD|TD-PO|BU-IO] pandagrounding [ipt=INT] [seed=INT] [ht]" << endl;
-        cout << "- TD: top down like in ICAPS version" << endl;
-        cout << "- TD-PO: top down + post optimization" << endl;
-        cout << "- TD-IO: top down + intermediate optimization" << endl;
-        cout << "- ipt: inplace threshold" << endl;
-
+        cout << "usage: " << "toad [TD|TD-PO|BU-IO] <pandagrounding> [ipt=<INT>] [ht]" << endl;
+        cout << "- first specify used algorithm:" << endl;
+        cout << "  - TD: top down like in ICAPS version" << endl;
+        cout << "  - TD-PO: top down + post optimization" << endl;
+        cout << "  - BU-IO: bottom up + intermediate optimization" << endl;
+        cout << "- <pandagrounding> specifies a file containing the problem grounded with the PANDA system" << endl;
+        cout << "- ipt: in the bottom-up construction, it can be beneficial to create certain automata inplace instead of creating" << endl;
+        cout << "       and combining them. When a task appears in less that <ipt> methods, it is created inplace." << endl;
+        cout << "- ht: if set, TOAD creates a file containing the FA goal distance for each state (used in a special heuristic in FD)" << endl;
         exit(-1);
     }
-
-    cout << "Random seed: " << seed << " [rseed=" << seed << "]" << endl;
-    srand(seed);
 
     /*
     * Read model
