@@ -7,7 +7,9 @@
 
 
 #include <fst/vector-fst.h>
+#include<iostream>
 
+using namespace std;
 using namespace fst;
 
 class HeuFaDist {
