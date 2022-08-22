@@ -93,6 +93,10 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
+    if (algo == TD) {
+        inplaceThreshold = -1;
+    }
+
     /*
     * Read model
     */
@@ -130,6 +134,8 @@ int main(int argc, char *argv[]) {
     cout << "- [timeHtnToGrammar=" << (endT - startT) << "]" << endl;
     startT = endT;
 
+    ofstream vfile;
+    vfile.open("verify.log");
     if (!to2s->isRegular) {
         CFtoRegGrammarEnc approx;
         cout << "- re-encode rules" << endl;
@@ -144,7 +150,12 @@ int main(int argc, char *argv[]) {
         endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         cout << "- [timeCfgToRegTransf=" << (endT - startT) << "]" << endl;
         startT = endT;
+
+        vfile << "TOAD: verification needed\n";
+    } else {
+        vfile << "TOAD: verification NOT needed\n";
     }
+    vfile.close();
 
     /*
      * Build FA
@@ -154,10 +165,12 @@ int main(int argc, char *argv[]) {
     StdVectorFst* fa;
     if (algo == TD) {
         bool interOpt = (opt == InterOpt);
+        cout << "- Using top down algorithm [algo=td]" << endl;
         fa = to2s->makeFATD(htn, htn->initialTask, inplaceThreshold, interOpt);
     } else {
         assert(algo == BU);
-        fa = to2s->makeFABU(htn, htn->initialTask);
+        cout << "- Using bottom-up algorithm [algo=bu]" << endl;
+        fa = to2s->makeFABU(htn, htn->initialTask, inplaceThreshold);
     }
 #ifndef NDEBUG
     Verify(*fa);
@@ -168,6 +181,7 @@ int main(int argc, char *argv[]) {
 //    cout << "- [aftersbp=" << fa->NumStates() << "]" << endl;
 
     if ((opt == PostOpt) || (opt == InterOpt)) {
+        cout << "- [usePostOpt=true]" << endl;
         gettimeofday(&tp, NULL);
         long beginPO = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         int oldSize = 0;
@@ -189,6 +203,8 @@ int main(int argc, char *argv[]) {
         gettimeofday(&tp, NULL);
         long endPO = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         cout << "- [postOptimization=" << (endPO - beginPO) << "]" << endl;
+    } else {
+        cout << "- [usePostOpt=false]" << endl;
     }
     cout << "- [numStatesFinal=" << fa->NumStates() << "]" << endl;
     gettimeofday(&tp, NULL);
@@ -196,7 +212,7 @@ int main(int argc, char *argv[]) {
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
 
     if (outputHeuristicTable) {
-        cout << "- writing FA distance for each state (used in special FD heuristic)";
+        cout << "- writing FA distance for each state (used in special FD heuristic)" << endl;
         gettimeofday(&tp, NULL);
         long startHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 
@@ -205,7 +221,7 @@ int main(int argc, char *argv[]) {
 
         gettimeofday(&tp, NULL);
         long endHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
-        cout << " [writingHfaLookUpTable=" << (endHFA - startHFA) << "]" << endl;
+        cout << "- [writingHfaLookUpTable=" << (endHFA - startHFA) << "]" << endl;
     }
 
     //fa->showDOT();

@@ -109,7 +109,7 @@ public:
 
     void printRules();
 
-    StdVectorFst *makeFABU(Model *htn, int tinit);
+    StdVectorFst *makeFABU(Model *htn, int tinit, int inplaceThreshold);
 
     void addRule(StdVectorFst *fst, int from, int label, int to, int costs);
 

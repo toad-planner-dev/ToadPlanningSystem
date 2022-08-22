@@ -609,8 +609,8 @@ void CFGtoFDAtranslator::printRules() {
 // * Bottom up methods
 // *************************************************
 
-StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit) {
-    detSymHandeledInplace(htn, 10);
+StdVectorFst *CFGtoFDAtranslator::makeFABU(Model *htn, int tinit, int inplaceThreshold) {
+    detSymHandeledInplace(htn, inplaceThreshold);
 
     cout << "- building sub-automata..." << endl;
     unordered_map<int, const Fst<StdArc>*> subautomata;
@@ -701,8 +701,12 @@ StdVectorFst *CFGtoFDAtranslator::getNewFA() {
 
 
 StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init, int inplaceThreshold, bool interOpt) {
-
-    detSymHandeledInplace(htn, interOpt);
+    detSymHandeledInplace(htn, inplaceThreshold);
+    if (interOpt) {
+        cout << "- using intermediate optimization" << endl;
+    } else {
+        cout << "- not using intermediate optimization" << endl;
+    }
 
     vector<pair<int, const Fst<StdArc>*>> label_fst_pairs;
     tstack.clear();
@@ -752,6 +756,16 @@ StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init, int inplaceThre
 }
 
 void CFGtoFDAtranslator::detSymHandeledInplace(const Model *htn, int inplaceThreshold) {
+    cout << "- inplace threshold [ipt=" << inplaceThreshold  << "]" << endl;
+    if (inplaceThreshold == -1) {
+        inplace.resize(numSymbols, true);
+        cout << "- ALL tasks handled inplace" << endl;
+        return;
+    } else if  (inplaceThreshold == -2) {
+        inplace.resize(numSymbols, false);
+        cout << "- NO tasks handled inplace" << endl;
+        return;
+    }
     unordered_map<int, int>* occurances = new unordered_map<int, int>();
     for (int i = numTerminals; i < numSymbols; i++) {
         occurances->insert(make_pair(i, 0));
