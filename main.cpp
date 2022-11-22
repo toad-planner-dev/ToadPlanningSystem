@@ -145,7 +145,7 @@ int main(int argc, char *argv[]) {
         cout << "- calc SCCs" << endl;
         to2s->calcSCCs(htn->initialTask);
         cout << "- re-analysing rules" << endl;
-        to2s->analyseRules(true);
+        to2s->analyseRules(false);
         gettimeofday(&tp, NULL);
         endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         cout << "- [timeCfgToRegTransf=" << (endT - startT) << "]" << endl;
