@@ -167,10 +167,12 @@ int main(int argc, char *argv[]) {
         bool interOpt = (opt == InterOpt);
         cout << "- Using top down algorithm [algo=td]" << endl;
         fa = to2s->makeFATD(htn, htn->initialTask, inplaceThreshold, interOpt);
+        //to2s->showDOT(fa, htn->taskNames);
     } else {
         assert(algo == BU);
         cout << "- Using bottom-up algorithm [algo=bu]" << endl;
         fa = to2s->makeFABU(htn, htn->initialTask, inplaceThreshold);
+        //to2s->showDOT(fa, htn->taskNames);
     }
 #ifndef NDEBUG
     Verify(*fa);

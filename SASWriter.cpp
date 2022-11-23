@@ -72,9 +72,16 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
     os << "begin_variable\n";
     os << "var" << m->numVars << "\n";
     os << "-1\n";
-    os << numDFAStates << "\n";
-    for (int i = 0; i < numDFAStates; i++) {
-        os << "Atom dfa(s" << i << ")\n";
+    if (numDFAStates > 1) {
+        os << numDFAStates << "\n";
+        for (int i = 0; i < numDFAStates; i++) {
+            os << "Atom dfa(s" << i << ")\n";
+        }
+    } else { // FD cannot deal with FDR groups of size 1
+        assert(numDFAStates == 1);
+        os << "2\n";
+        os << "Atom dfa(s0)\n";
+        os << "<none of those>\n";
     }
     os << "end_variable\n";
 
