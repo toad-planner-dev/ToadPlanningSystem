@@ -760,38 +760,26 @@ void CFGtoFDAtranslator::detSymHandeledInplace(const Model *htn, int inplaceThre
     if (inplaceThreshold == -1) {
         inplace.resize(numSymbols, true);
         cout << "- ALL tasks handled inplace" << endl;
-        return;
     } else if  (inplaceThreshold == -2) {
         inplace.resize(numSymbols, false);
         cout << "- NO tasks handled inplace" << endl;
-        return;
-    }
-    unordered_map<int, int>* occurances = new unordered_map<int, int>();
-    for (int i = numTerminals; i < numSymbols; i++) {
-        occurances->insert(make_pair(i, 0));
-    }
-    for (int i = 0; i < this->numRules; i++) {
-        for (int j = 0; j < rules[i]->rLength; j++) {
-            const int t = rules[i]->right[j];
-            if ((t != Epsilon) && (!isTerminalSym(t))) {
-                occurances->at(t)++;
+    } else {
+        unordered_map<int, int> *occurances = new unordered_map<int, int>();
+        for (int i = numTerminals; i < numSymbols; i++) {
+            occurances->insert(make_pair(i, 0));
+        }
+        for (int i = 0; i < this->numRules; i++) {
+            for (int j = 0; j < rules[i]->rLength; j++) {
+                const int t = rules[i]->right[j];
+                if ((t != Epsilon) && (!isTerminalSym(t))) {
+                    occurances->at(t)++;
+                }
             }
         }
-    }
-//    vector<int> hist;
-//    for (int i = numTerminals; i < numSymbols; i++) {
-//        int occ = occurances->at(i);
-//        while (occ >= hist.size()) {
-//            hist.push_back(0);
-//        }
-//        hist[occ]++;
-//    }
-//    for (int i = 0; i < hist.size(); i++) {
-//        cout << i << ": " << hist[i] << " times" << endl;
-//    }
-    inplace.resize(numSymbols, false);
-    for (int i = numTerminals; i <numSymbols; i++) {
-        inplace[i] = (occurances->at(i) < inplaceThreshold);
+        inplace.resize(numSymbols, false);
+        for (int i = numTerminals; i < numSymbols; i++) {
+            inplace[i] = (occurances->at(i) < inplaceThreshold);
+        }
     }
     inplace[htn->initialTask] = false; // this does not make sense
 }
