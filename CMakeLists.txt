@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.17)
 project(TOAD)
 
+#set(CMAKE_CXX_FLAGS "-Wall -Wextra")
+#set(CMAKE_CXX_FLAGS_DEBUG "-g")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+
+set(CMAKE_CXX_FLAGS "-Os")
+
 set(CMAKE_CXX_STANDARD 17)
 
 INCLUDE_DIRECTORIES(/mnt/data_server/hoeller/toad3/code/libfst/share/include)
