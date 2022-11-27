@@ -15,7 +15,7 @@ using namespace fst;
 class HeuFaDist {
 
 public:
-    void writeHeuristicLookupTable(VectorFst<StdArc> *fa);
+    void writeHeuristicLookupTable(VectorFst<StdArc> *fa, bool addedGoalState);
 };
 
 

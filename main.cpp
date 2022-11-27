@@ -213,31 +213,34 @@ int main(int argc, char *argv[]) {
     long endB = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << "- [buildingDFA=" << (endB - startB) << "]" << endl;
 
+    //fa->showDOT();
+    //fa->showDOT(htn->taskNames);
+    string dFile2 = "domain.pddl";
+    string pFile2 = "problem.sas";
+
+    bool addedGoalState = false;
+    if (output == outputSAS) {
+        SASWriter mw2;
+        mw2.write(htn, fa, dFile2, pFile2);
+        addedGoalState = mw2.addedGoalState;
+    } else if (output == outputPDDL) {
+        ModelWriter mw;
+        mw.write(htn, fa, dFile2, pFile2);
+    }
+
     if (outputHeuristicTable) {
         cout << "- writing FA distance for each state (used in special FD heuristic)" << endl;
         gettimeofday(&tp, NULL);
         long startHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 
         HeuFaDist hfa;
-        hfa.writeHeuristicLookupTable(fa);
+        hfa.writeHeuristicLookupTable(fa, addedGoalState);
 
         gettimeofday(&tp, NULL);
         long endHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
         cout << "- [writingHfaLookUpTable=" << (endHFA - startHFA) << "]" << endl;
     }
 
-    //fa->showDOT();
-    //fa->showDOT(htn->taskNames);
-    string dFile2 = "domain.pddl";
-    string pFile2 = "problem.sas";
-
-    if (output == outputSAS) {
-        SASWriter mw2;
-        mw2.write(htn, fa, dFile2, pFile2);
-    } else if (output == outputPDDL) {
-        ModelWriter mw;
-        mw.write(htn, fa, dFile2, pFile2);
-    }
     return 0;
 }
 

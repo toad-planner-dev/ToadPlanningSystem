@@ -66,6 +66,7 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
         singleDFAGoalState = numDFAStates; // the new one
         numDFAStates++;
         additionalActions = dfaGoalStates.size(); // need new epsilon transitions
+        addedGoalState = true; // this value is used when the heuristic lookup table is computed
     }
 
     // write dfa states
