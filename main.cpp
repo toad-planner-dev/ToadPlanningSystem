@@ -218,11 +218,11 @@ int main(int argc, char *argv[]) {
     string dFile2 = "domain.pddl";
     string pFile2 = "problem.sas";
 
-    bool addedGoalState = false;
+    bool addedState = false;
     if (output == outputSAS) {
         SASWriter mw2;
         mw2.write(htn, fa, dFile2, pFile2);
-        addedGoalState = mw2.addedGoalState;
+        addedState = mw2.addedState;
     } else if (output == outputPDDL) {
         ModelWriter mw;
         mw.write(htn, fa, dFile2, pFile2);
@@ -234,7 +234,7 @@ int main(int argc, char *argv[]) {
         long startHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;
 
         HeuFaDist hfa;
-        hfa.writeHeuristicLookupTable(fa, addedGoalState);
+        hfa.writeHeuristicLookupTable(fa, addedState);
 
         gettimeofday(&tp, NULL);
         long endHFA = tp.tv_sec * 1000 + tp.tv_usec / 1000;

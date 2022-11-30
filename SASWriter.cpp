@@ -66,7 +66,7 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
         singleDFAGoalState = numDFAStates; // the new one
         numDFAStates++;
         additionalActions = dfaGoalStates.size(); // need new epsilon transitions
-        addedGoalState = true; // this value is used when the heuristic lookup table is computed
+        addedState = true; // this value is used when the heuristic lookup table is computed
     }
 
     // write dfa states
@@ -83,6 +83,7 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
         os << "2\n";
         os << "Atom dfa(s0)\n";
         os << "<none of those>\n";
+        addedState = true;
     }
     os << "end_variable\n";
 
@@ -169,6 +170,7 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
 //    tLabelID a;
 //    while (fa->delta->fullIterNext(&from, &a, &to)) {
 //        assert((a < m->numActions) || (a == epsilon));
+//    unordered_set<string> actions;
     for (StateIterator<StdVectorFst> siter(*fst); !siter.Done(); siter.Next()) {
         int state_id = siter.Value();
         for (ArcIterator<StdFst> aiter(*fst, state_id); !aiter.Done(); aiter.Next()) {
@@ -177,6 +179,14 @@ void SASWriter::write(Model *htn, StdVectorFst *fst, string dName, string pName)
             assert(a < htn->numActions);
             int from = state_id;
             int to = arc.nextstate;
+
+//            string strName = to_string(from) + "#" + to_string(to) + "#" + to_string(a);
+//            if (actions.find(strName) != actions.end()) {
+//                cout << "found duplicate" << endl;
+//                exit(0);
+//            }
+//            actions.insert(strName);
+
             if (a == -1) { // epsilon
                 assert (from != to);
                 os << "begin_operator\n";

@@ -20,7 +20,7 @@ class SASWriter {
 
 public:
     void write(Model *htn, StdVectorFst *automaton, string dName, string pName);
-    bool addedGoalState = false;
+    bool addedState = false;
 };
 
 
