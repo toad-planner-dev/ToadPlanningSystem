@@ -746,8 +746,15 @@ StdVectorFst *CFGtoFDAtranslator::makeFATD(Model *htn, int init, int inplaceThre
     startT = endT;
 
     cout << "- combining sub-FAs.";
-    StdVectorFst* fst = getNewFA();
-    Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
+    StdVectorFst *fst;
+    if (label_fst_pairs.size() > 1) {
+        fst = getNewFA();
+        Replace(label_fst_pairs, fst, htn->initialTask + 1, true);
+    } else {
+        Fst<StdArc>* tmp = label_fst_pairs[0].second->Copy(false);
+        fst = dynamic_cast<StdVectorFst *>(tmp);
+        cout << endl << "  -> is not necessary" << endl;
+    }
     gettimeofday(&tp, NULL);
     endT = tp.tv_sec * 1000 + tp.tv_usec / 1000;
     cout << " [timeCombiningSubFAs=" << (endT - startT) << "]" << endl;
